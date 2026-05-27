@@ -260,7 +260,12 @@ async function loadDataFromAPI() {
     if (r.status === 401) { clearToken(); return null; }  // null = forcer logout
     if (!r.ok) throw new Error("HTTP " + r.status);
     const d = await r.json();
-    if (d && d.profil) return { ...DEFAULT_STATE, ...d };
+    // Si les données existent et ont un profil configuré → utiliser telles quelles
+    if (d && d.profil && d.profil.configured) {
+      return { ...DEFAULT_STATE, ...d };
+    }
+    // Données partielles ou vides → fusionner avec DEFAULT_STATE
+    return { ...DEFAULT_STATE, ...(d || {}) };
   } catch (e) {
     console.warn("Erreur chargement:", e.message);
   }
@@ -2237,9 +2242,8 @@ function App() {
   const [appLoaded, setAppLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // null|"saving"|"ok"|"error"
 
-  // Brancher les callbacks globaux
+  // Brancher callback global setSaveStatus
   useEffect(() => { _setSaveStatus = setSaveStatus; }, [setSaveStatus]);
-  useEffect(() => { _setAuthUser   = setAuthUser;   }, [setAuthUser]);
 
   // Auto-reset du statut après 3s
   useEffect(() => {
@@ -2248,6 +2252,7 @@ function App() {
       return () => clearTimeout(t);
     }
   }, [saveStatus]);
+
   const [authUser, setAuthUser] = useState(() => {
     try {
       const t = getToken();
@@ -2258,6 +2263,9 @@ function App() {
       return { email: payload.email };
     } catch(_) { return null; }
   });
+
+  // Brancher callback global setAuthUser (DOIT être après le useState ci-dessus)
+  useEffect(() => { _setAuthUser = setAuthUser; }, [setAuthUser]);
 
   // Chargement des données depuis l'API au démarrage
   useEffect(() => {

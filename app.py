@@ -114,11 +114,12 @@ def init_db():
 
 # ─── JWT Helpers ──────────────────────────────────────────────────────────────
 def create_token(user_id: int, email: str) -> str:
+    now = datetime.datetime.now(datetime.timezone.utc)
     payload = {
-        "sub": user_id,
+        "sub": str(user_id),   # PyJWT >= 2.0 exige string pour "sub" (RFC 7519)
         "email": email,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=JWT_EXPIRY),
-        "iat": datetime.datetime.utcnow(),
+        "exp": now + datetime.timedelta(days=JWT_EXPIRY),
+        "iat": now,
     }
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
@@ -141,7 +142,7 @@ def require_auth(f):
             return jsonify({"error": "Token vide"}), 401
         try:
             payload = decode_token(token_str)
-            request.user_id = payload["sub"]
+            request.user_id = int(payload["sub"])   # sub est stocké en string, on reconvertit en int pour les requêtes DB
             request.user_email = payload["email"]
         except jwt.ExpiredSignatureError:
             print(f"❌ require_auth: token expiré sur {request.path}")
