@@ -12,6 +12,21 @@ import functools
 import bcrypt
 import jwt
 
+# Charger .env automatiquement (développement local)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # Fallback manuel si python-dotenv pas installé
+    _env = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(_env):
+        with open(_env) as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    os.environ.setdefault(_k.strip(), _v.strip())
+
 # Compatibilité Windows (pg8000) + Linux/Render (psycopg2)
 try:
     import psycopg2
