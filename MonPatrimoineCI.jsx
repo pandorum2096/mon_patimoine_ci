@@ -1,0 +1,2218 @@
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  LineChart, Line, AreaChart, Area, BarChart, Bar,
+  PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer
+} from "recharts";
+
+// ─── CONSTANTES ────────────────────────────────────────────────────────────────
+const STORAGE_KEY = "patrimoine_v3";
+
+const CATEGORIES = [
+  { id: "loyer",        label: "Loyer",        icon: "🏠", type: "fixe",     rule: "besoins" },
+  { id: "electricite",  label: "Électricité",  icon: "💡", type: "fixe",     rule: "besoins" },
+  { id: "eau",          label: "Eau",          icon: "💧", type: "fixe",     rule: "besoins" },
+  { id: "gaz",          label: "Gaz",          icon: "🔥", type: "fixe",     rule: "besoins" },
+  { id: "internet",     label: "Internet",     icon: "🌐", type: "fixe",     rule: "besoins" },
+  { id: "assurance",    label: "Assurance",    icon: "🛡️", type: "fixe",     rule: "besoins" },
+  { id: "credit",       label: "Crédit",       icon: "💳", type: "fixe",     rule: "besoins" },
+  { id: "alimentation", label: "Alimentation", icon: "🍽️", type: "variable", rule: "besoins" },
+  { id: "transport",    label: "Transport",    icon: "🚗", type: "variable", rule: "besoins" },
+  { id: "sante",        label: "Santé",        icon: "🏥", type: "variable", rule: "besoins" },
+  { id: "education",    label: "Éducation",    icon: "📚", type: "variable", rule: "besoins" },
+  { id: "famille",      label: "Famille",      icon: "👨‍👩‍👧", type: "variable", rule: "envies" },
+  { id: "loisirs",      label: "Loisirs",      icon: "🎮", type: "variable", rule: "envies" },
+  { id: "shopping",     label: "Shopping",     icon: "🛍️", type: "variable", rule: "envies" },
+  { id: "abonnements",  label: "Abonnements",  icon: "📺", type: "variable", rule: "envies" },
+  { id: "autre",        label: "Autre",        icon: "📦", type: "variable", rule: "envies" },
+];
+
+const ICONS_OBJECTIFS = ["🏠","🚗","✈️","🎓","💍","👶","💻","📱","🏋️","🌴","💰","🛒","🎸","⚽","🏖️"];
+
+const ASSET_TYPES = [
+  { id: "urgence",     label: "Épargne urgence",  icon: "🛡️", liquid: true  },
+  { id: "projet",      label: "Épargne projet",   icon: "🎯", liquid: true  },
+  { id: "fcp",         label: "FCP",              icon: "📈", liquid: true  },
+  { id: "brvm",        label: "Actions BRVM",     icon: "📊", liquid: false },
+  { id: "crypto",      label: "Crypto",           icon: "₿",  liquid: false },
+  { id: "terrain",     label: "Terrain",          icon: "🌍", liquid: false },
+  { id: "immobilier",  label: "Immobilier",       icon: "🏗️", liquid: false },
+  { id: "or",          label: "Or/Minéraux",      icon: "⚜️", liquid: false },
+  { id: "vehicule",    label: "Véhicule",         icon: "🚗", liquid: false },
+  { id: "autre",       label: "Autre",            icon: "📦", liquid: false },
+];
+
+const INVEST_TYPES = [
+  { id: "urgence",  label: "Épargne d'urgence",  icon: "🛡️", investable: true,  assetType: "urgence", needsName: false },
+  { id: "projet",   label: "Épargne projet",     icon: "🎯", investable: true,  assetType: "projet",  needsName: false },
+  { id: "fcp",      label: "FCP Djamo Invest",   icon: "📈", investable: true,  assetType: "fcp",     needsName: true  },
+  { id: "brvm",     label: "Actions BRVM",       icon: "📊", investable: true,  assetType: "brvm",    needsName: true  },
+  { id: "crypto",   label: "Crypto",             icon: "₿",  investable: true,  assetType: "crypto",  needsName: true  },
+];
+
+const TIPS = [
+  "💡 La règle 50/30/20 : 50% besoins, 30% envies, 20% épargne.",
+  "📈 Le BRVM a progressé de +18% en 2024. Pensez long terme.",
+  "🛡️ Constituez 3 mois de dépenses en épargne d'urgence avant tout.",
+  "💰 Les intérêts composés : le temps est votre meilleur allié.",
+  "🎯 Un objectif sans plan est juste un souhait. Budgétisez vos rêves.",
+  "⚠️ Méfiez-vous des rendements supérieurs à 15%/an — souvent des arnaques.",
+  "🌱 Commencez petit : même 5 000 FCFA/mois peuvent changer votre avenir.",
+  "📊 Diversifiez : ne mettez pas tous vos œufs dans le même panier.",
+  "🏠 L'immobilier en CI reste un placement solide sur 10+ ans.",
+  "💳 Remboursez vos crédits à la consommation avant d'investir.",
+];
+
+const PLACEMENTS = [
+  { id: "urgence", label: "Épargne de sécurité", icon: "🛡️", risk: 1, rendement: "3-5%", produit: "CCP, Orange Money Épargne", description: "Liquidité immédiate, zéro risque.", minRisk: 1 },
+  { id: "fcp",     label: "FCP / OPCVM",         icon: "📈", risk: 2, rendement: "6-10%", produit: "Djamo Invest, NSIA AM", description: "Fonds commun de placement, diversifié.", minRisk: 1 },
+  { id: "brvm",    label: "Actions BRVM",         icon: "📊", risk: 3, rendement: "10-18%", produit: "SIB, SONATEL, ORABANK", description: "Bourse régionale UEMOA. Horizon 3-5 ans.", minRisk: 2 },
+  { id: "terrain", label: "Terrain / Immobilier", icon: "🌍", risk: 2, rendement: "8-15%", produit: "Zones périurbaines Abidjan", description: "Valeur refuge, appréciation long terme.", minRisk: 1 },
+  { id: "crypto",  label: "Cryptomonnaies",       icon: "₿",  risk: 5, rendement: "variable", produit: "BTC, ETH via Binance/Bybit", description: "Très volatile. Maximum 5-10% du patrimoine.", minRisk: 3 },
+];
+
+const FORMATION_MODULES = [
+  {
+    id: "5030", icon: "📊", titre: "Règle 50/30/20", niveau: "Débutant",
+    sections: [
+      { titre: "C'est quoi la règle 50/30/20 ?", contenu: "Une méthode simple pour répartir vos revenus : 50% pour les besoins vitaux, 30% pour les plaisirs, et 20% pour l'épargne et les investissements." },
+      { titre: "Les besoins (50%)", contenu: "Loyer, eau, électricité, transport, alimentation, santé. Ce sont les dépenses incompressibles pour vivre." },
+      { titre: "Les envies (30%)", contenu: "Sorties, loisirs, shopping, abonnements, famille. Des dépenses plaisir que vous pouvez réduire si nécessaire." },
+      { titre: "L'épargne (20%)", contenu: "Fonds d'urgence, investissements, objectifs. C'est la partie qui construit votre avenir financier." },
+      { titre: "Adapter à la Côte d'Ivoire", contenu: "En CI, les dépenses familiales peuvent être élevées. Si vous êtes à 35% en envies, l'objectif est de descendre progressivement. Commencez par réduire les abonnements inutiles." },
+    ]
+  },
+  {
+    id: "urgence", icon: "🛡️", titre: "Épargne de sécurité", niveau: "Essentiel",
+    sections: [
+      { titre: "Pourquoi un fonds d'urgence ?", contenu: "La vie est imprévisible : maladie, perte d'emploi, réparation urgente. Sans épargne, une seule mauvaise surprise peut vous endetter." },
+      { titre: "Combien épargner ?", contenu: "L'objectif est de couvrir 3 à 6 mois de dépenses. Si vos dépenses mensuelles sont de 300 000 FCFA, visez 900 000 à 1 800 000 FCFA." },
+      { titre: "Où placer ce fonds ?", contenu: "Sur un compte facilement accessible : CCP, compte épargne bancaire, ou Orange Money Épargne. Pas en bourse, pas en crypto." },
+      { titre: "Comment le constituer ?", contenu: "Automatisez le virement dès réception du salaire. Même 20 000 FCFA/mois pendant 12 mois = 240 000 FCFA d'avance." },
+      { titre: "Ne pas y toucher", contenu: "Ce fonds n'est pas pour les vacances. Définissez clairement ce qui constitue une 'urgence' pour vous." },
+    ]
+  },
+  {
+    id: "brvm", icon: "📊", titre: "Investir à la BRVM", niveau: "Intermédiaire",
+    sections: [
+      { titre: "Qu'est-ce que la BRVM ?", contenu: "La Bourse Régionale des Valeurs Mobilières est basée à Abidjan. Elle regroupe les actions des entreprises de l'UEMOA (8 pays)." },
+      { titre: "Comment acheter des actions ?", contenu: "Passez par une Société de Gestion et d'Intermédiation (SGI) agréée. Partenaires courants : SGI Côte d'Ivoire, United Capital CI, BICI Bourse." },
+      { titre: "Quelles actions choisir ?", contenu: "Entreprises solides : SONATEL (telecoms, Sénégal), SIB (banque CI), NSIA Banque, ORABANK, Nestlé CI. Consultez brvm.org pour les cours." },
+      { titre: "Risques et horizon", contenu: "La BRVM est peu liquide. Investissez uniquement sur un horizon de 3 à 5 ans minimum. Ne mettez jamais plus de 30% de votre épargne en actions." },
+      { titre: "Dividendes", contenu: "Plusieurs entreprises versent des dividendes annuels attractifs (5-8%). C'est un revenu passif en FCFA sans risque de change." },
+    ]
+  },
+  {
+    id: "djamo", icon: "📱", titre: "Djamo Invest", niveau: "Débutant",
+    sections: [
+      { titre: "C'est quoi Djamo Invest ?", contenu: "Un FCP (Fonds Commun de Placement) accessible depuis l'application Djamo. Géré par NSIA Asset Management, agréé par l'AMF-UMOA." },
+      { titre: "Performances", contenu: "Rendement historique autour de 6-8%/an net de frais. Bien supérieur à un simple compte d'épargne bancaire (1-3%)." },
+      { titre: "Comment investir ?", contenu: "Téléchargez l'app Djamo, ouvrez un compte, allez dans 'Investir'. Dépôt minimum : 1 000 FCFA. Retraits possibles sous 72h." },
+      { titre: "Avantages", contenu: "Accessible, digitalisé, montants faibles acceptés, géré par des professionnels. Idéal pour débuter." },
+      { titre: "Limites", contenu: "Rendement plafonné, moins performant que la BRVM sur le long terme. À combiner avec d'autres placements pour un portefeuille équilibré." },
+    ]
+  },
+  {
+    id: "composes", icon: "📈", titre: "Intérêts composés", niveau: "Intermédiaire",
+    sections: [
+      { titre: "Le principe", contenu: "Vos intérêts génèrent eux-mêmes des intérêts. C'est l'effet boule de neige de l'épargne." },
+      { titre: "La formule", contenu: "C = P × (1 + r)^n où P = capital initial, r = taux annuel, n = nombre d'années. Exemple : 500 000 FCFA à 8%/an pendant 10 ans = 1 079 462 FCFA." },
+      { titre: "Pourquoi commencer tôt ?", contenu: "Épargner 50 000/mois à 25 ans donne 3× plus qu'à 35 ans, à 60 ans. Chaque année perdue est irrécupérable." },
+      { titre: "Intérêts simples vs composés", contenu: "Simples : vous gagnez toujours le même montant. Composés : le montant croit chaque année. Sur 20 ans, la différence est énorme." },
+      { titre: "Application pratique", contenu: "Utilisez le simulateur dans l'onglet Conseil pour projeter votre épargne avec différents taux et durées." },
+    ]
+  },
+  {
+    id: "arnaques", icon: "⚠️", titre: "Reconnaître les arnaques", niveau: "Essentiel",
+    sections: [
+      { titre: "Les signes d'alerte", contenu: "Rendements garantis >15%/mois, recrutement obligatoire, pression temporelle ('offre limitée'), absence de régulation AMF-UMOA." },
+      { titre: "Schémas de Ponzi", contenu: "Les anciens sont payés avec l'argent des nouveaux. Cela s'effondre toujours. Exemples récents en CI : 'Invest CI', 'WinCapita'." },
+      { titre: "Pyramides de vente", contenu: "On vous promet des revenus si vous recrutez. Les revenus viennent du recrutement, pas d'un produit réel." },
+      { titre: "Comment vérifier ?", contenu: "Tout prestataire financier en CI doit être agréé par l'AMF-UMOA. Vérifiez sur amf-umoa.org avant tout investissement." },
+      { titre: "Règle d'or", contenu: "Si c'est trop beau pour être vrai, c'est que ça l'est. Un vrai investissement comporte toujours un risque. Aucun rendement n'est 'garanti'." },
+    ]
+  },
+  {
+    id: "terrain", icon: "🌍", titre: "Investir dans un terrain en CI", niveau: "Avancé",
+    sections: [
+      { titre: "Pourquoi un terrain ?", contenu: "La pression foncière à Abidjan et dans les villes secondaires fait apprécier les terrains de 10-20%/an dans certaines zones. Valeur refuge tangible." },
+      { titre: "Les risques", contenu: "Titres fonciers douteux, ventes multiples, terrains litigieux. En CI, beaucoup de 'lettre de mise en demeure' sans titre officiel." },
+      { titre: "Sécuriser l'achat", contenu: "Exigez toujours un Titre Foncier (TF) ou un Arrêté de Concession Définitive (ACD). Fuyez les simples attestations villageoises sans validation préfectorale." },
+      { titre: "Zones prometteuses", contenu: "Grand-Bassam, Bingerville, Songon, San-Pedro. Évitez les zones sans plan d'urbanisme clair ou proches de décharges." },
+      { titre: "Processus d'achat", contenu: "Notaire obligatoire pour sécuriser la transaction. Budget : frais de notaire ~4-6% + frais d'enregistrement. Comptez 3-6 mois pour finaliser." },
+    ]
+  },
+];
+
+// ─── UTILITAIRES ────────────────────────────────────────────────────────────────
+const genId = () => Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+
+const fmt = (n) => {
+  if (n === undefined || n === null || isNaN(n)) return "0";
+  return new Intl.NumberFormat("fr-FR").format(Math.round(n));
+};
+
+const moisLabel = (m) => {
+  const [y, mo] = m.split("-");
+  const noms = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+  return noms[parseInt(mo) - 1] + " " + y;
+};
+
+const prevMois = (m) => {
+  const [y, mo] = m.split("-").map(Number);
+  if (mo === 1) return `${y - 1}-12`;
+  return `${y}-${String(mo - 1).padStart(2, "0")}`;
+};
+
+const nextMois = (m) => {
+  const [y, mo] = m.split("-").map(Number);
+  if (mo === 12) return `${y + 1}-01`;
+  return `${y}-${String(mo + 1).padStart(2, "0")}`;
+};
+
+const todayMois = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const DEFAULT_STATE = {
+  profil: { nom: "", revenuMensuel: 0, profilRisque: "equilibre", configured: false },
+  moisActif: todayMois(),
+  periodes: {},
+  objectifs: [],
+  patrimoine: [],
+  transactions: [],
+};
+
+const DEFAULT_PERIODE = () => ({ revenus: [], depenses: [], allocations: 0 });
+
+function loadData() {
+  try {
+    if (window.storage) {
+      const d = window.storage.get(STORAGE_KEY);
+      if (d) return { ...DEFAULT_STATE, ...d };
+    } else {
+      const d = localStorage.getItem(STORAGE_KEY);
+      if (d) return { ...DEFAULT_STATE, ...JSON.parse(d) };
+    }
+  } catch (e) {}
+  return { ...DEFAULT_STATE };
+}
+
+function saveData(data) {
+  try {
+    if (window.storage) window.storage.set(STORAGE_KEY, data);
+    else localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {}
+}
+
+function getPeriode(data, mois) {
+  return data.periodes[mois] || DEFAULT_PERIODE();
+}
+
+function getSolde(data, mois) {
+  const p = getPeriode(data, mois);
+  const rev = p.revenus.reduce((a, r) => a + (r.montant || 0), 0);
+  const dep = p.depenses.reduce((a, d) => a + (d.montant || 0), 0);
+  return rev - dep - (p.allocations || 0);
+}
+
+function getTotalInvesti(data) {
+  return data.transactions
+    .filter(t => t.type === "investissement")
+    .reduce((a, t) => a + t.montant, 0);
+}
+
+function getPatrimoineNet(data, moisActif) {
+  const actifs = data.patrimoine.reduce((a, p) => a + (p.valeurActuelle || 0), 0);
+  const epargneObj = data.objectifs.reduce((a, o) => a + (o.epargne || 0), 0);
+  const solde = getSolde(data, moisActif);
+  return actifs + epargneObj + solde;
+}
+
+// ─── THÈME ──────────────────────────────────────────────────────────────────────
+const THEMES = {
+  dark: {
+    "--bg": "#0A0F1A",
+    "--card": "#111827",
+    "--surface": "#1F2937",
+    "--border": "#374151",
+    "--text": "#F9FAFB",
+    "--muted": "#9CA3AF",
+    "--gold": "#C9A84C",
+    "--red": "#EF4444",
+    "--green": "#10B981",
+    "--blue": "#3B82F6",
+  },
+  light: {
+    "--bg": "#F3F4F6",
+    "--card": "#FFFFFF",
+    "--surface": "#E5E7EB",
+    "--border": "#D1D5DB",
+    "--text": "#111827",
+    "--muted": "#6B7280",
+    "--gold": "#B8860B",
+    "--red": "#DC2626",
+    "--green": "#059669",
+    "--blue": "#2563EB",
+  }
+};
+
+function applyTheme(mode) {
+  const vars = THEMES[mode];
+  Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+}
+// ─── STYLES GLOBAUX ─────────────────────────────────────────────────────────────
+const G = {
+  card: {
+    background: "var(--card)", border: "1px solid var(--border)",
+    borderRadius: 12, padding: 20, marginBottom: 16,
+    animation: "fadeIn 0.35s ease",
+  },
+  input: {
+    background: "var(--surface)", border: "1px solid var(--border)",
+    borderRadius: 8, padding: "10px 14px", color: "var(--text)",
+    fontSize: 14, width: "100%", outline: "none",
+    fontFamily: "Palatino Linotype, Georgia, serif",
+  },
+  btn: (color = "var(--gold)") => ({
+    background: color, border: "none", borderRadius: 8,
+    padding: "10px 18px", color: color === "var(--gold)" ? "#0A0F1A" : "#fff",
+    fontWeight: 700, cursor: "pointer", fontSize: 14,
+    fontFamily: "Palatino Linotype, Georgia, serif",
+    transition: "opacity 0.2s",
+  }),
+  btnSm: (color = "var(--gold)") => ({
+    background: color, border: "none", borderRadius: 6,
+    padding: "6px 12px", color: color === "var(--gold)" ? "#0A0F1A" : "#fff",
+    fontWeight: 700, cursor: "pointer", fontSize: 12,
+    fontFamily: "Palatino Linotype, Georgia, serif",
+  }),
+  label: { color: "var(--muted)", fontSize: 12, marginBottom: 4, display: "block" },
+  row: { display: "flex", gap: 12, alignItems: "center" },
+  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
+  grid4: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 },
+};
+
+// ─── COMPOSANTS UTILITAIRES ─────────────────────────────────────────────────────
+
+function ProgressBar({ value, max, color = "var(--gold)", height = 8 }) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  return (
+    <div style={{ background: "var(--surface)", borderRadius: 99, height, overflow: "hidden" }}>
+      <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.5s" }} />
+    </div>
+  );
+}
+
+function KpiCard({ label, value, sub, color = "var(--gold)", icon }) {
+  return (
+    <div style={{ ...G.card, textAlign: "center", padding: 16 }}>
+      {icon && <div style={{ fontSize: 24, marginBottom: 6 }}>{icon}</div>}
+      <div style={{ color: "var(--muted)", fontSize: 12, marginBottom: 4 }}>{label}</div>
+      <div style={{ color, fontSize: 20, fontWeight: 800 }}>{value}</div>
+      {sub && <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function Alert({ type = "warn", children }) {
+  const colors = { warn: "#F59E0B", error: "var(--red)", success: "var(--green)", info: "var(--blue)" };
+  const bg = { warn: "#FEF3C7", error: "#FEE2E2", success: "#D1FAE5", info: "#DBEAFE" };
+  return (
+    <div style={{
+      background: "transparent", border: `1px solid ${colors[type]}`,
+      borderRadius: 8, padding: "10px 14px", marginBottom: 12,
+      color: colors[type], fontSize: 13,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function Modal({ title, children, onClose }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      zIndex: 1000, padding: 20,
+    }}>
+      <div style={{
+        background: "var(--card)", borderRadius: 16, padding: 28,
+        maxWidth: 480, width: "100%", border: "1px solid var(--border)",
+        maxHeight: "80vh", overflowY: "auto",
+      }}>
+        <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 20 }}>
+          <h3 style={{ color: "var(--text)", margin: 0, fontSize: 18 }}>{title}</h3>
+          {onClose && (
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 20, cursor: "pointer" }}>×</button>
+          )}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ─── ONBOARDING ─────────────────────────────────────────────────────────────────
+function Onboarding({ onDone }) {
+  const [step, setStep] = useState(0);
+  const [nom, setNom] = useState("");
+  const [revenu, setRevenu] = useState("");
+  const [risque, setRisque] = useState("equilibre");
+
+  const revNum = parseFloat(revenu.replace(/\s/g,"")) || 0;
+
+  const styles = {
+    wrapper: {
+      minHeight: "100vh", background: "var(--bg)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 20, fontFamily: "Palatino Linotype, Georgia, serif",
+    },
+    box: {
+      background: "var(--card)", borderRadius: 20, padding: 36,
+      maxWidth: 480, width: "100%", border: "1px solid var(--border)",
+    },
+    title: { color: "var(--gold)", fontSize: 28, fontWeight: 800, marginBottom: 8, textAlign: "center" },
+    sub: { color: "var(--muted)", fontSize: 14, marginBottom: 28, textAlign: "center" },
+    step: { color: "var(--muted)", fontSize: 12, textAlign: "center", marginBottom: 20 },
+  };
+
+  const modules = [
+    { icon: "💵", label: "Budget" },
+    { icon: "🎯", label: "Objectifs" },
+    { icon: "💸", label: "Investir" },
+    { icon: "💎", label: "Patrimoine" },
+  ];
+
+  return (
+    <div style={styles.wrapper}>
+      <div style={styles.box}>
+        <div style={styles.title}>💰 Mon Patrimoine CI</div>
+        <div style={styles.step}>Étape {step + 1} / 3</div>
+
+        {step === 0 && (
+          <>
+            <div style={styles.sub}>Gérez vos finances en FCFA avec intelligence.</div>
+            <label style={G.label}>Votre prénom</label>
+            <input style={{ ...G.input, marginBottom: 20 }} value={nom} onChange={e => setNom(e.target.value)} placeholder="Ex: Amara" />
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 24, justifyContent: "center" }}>
+              {modules.map(m => (
+                <div key={m.icon} style={{ textAlign: "center", background: "var(--surface)", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "var(--text)" }}>
+                  <div style={{ fontSize: 24 }}>{m.icon}</div>
+                  <div>{m.label}</div>
+                </div>
+              ))}
+            </div>
+            <button style={{ ...G.btn(), width: "100%" }} disabled={!nom.trim()} onClick={() => setStep(1)}>
+              Continuer →
+            </button>
+          </>
+        )}
+
+        {step === 1 && (
+          <>
+            <div style={styles.sub}>Quel est votre revenu mensuel net ?</div>
+            <label style={G.label}>Revenu mensuel (FCFA)</label>
+            <input style={{ ...G.input, marginBottom: 20 }} type="number" value={revenu} onChange={e => setRevenu(e.target.value)} placeholder="Ex: 350000" />
+            {revNum > 0 && (
+              <div style={{ ...G.card, padding: 16, marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: "var(--text)" }}>Aperçu 50/30/20</div>
+                {[["🏠 Besoins", 0.5], ["🎮 Envies", 0.3], ["💰 Épargne", 0.2]].map(([label, r]) => (
+                  <div key={label} style={{ marginBottom: 8 }}>
+                    <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 3 }}>
+                      <span style={{ fontSize: 12, color: "var(--muted)" }}>{label}</span>
+                      <span style={{ fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>{fmt(revNum * r)} FCFA</span>
+                    </div>
+                    <ProgressBar value={r * 100} max={100} />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button style={{ ...G.btn("var(--surface)"), flex: 1 }} onClick={() => setStep(0)}>← Retour</button>
+              <button style={{ ...G.btn(), flex: 2 }} disabled={revNum <= 0} onClick={() => setStep(2)}>Continuer →</button>
+            </div>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <div style={styles.sub}>Quel est votre profil d'investisseur ?</div>
+            {[
+              { id: "prudent",   icon: "🛡️", label: "Prudent",    desc: "Sécurité avant tout. Épargne, FCP." },
+              { id: "equilibre", icon: "⚖️", label: "Équilibré",  desc: "Mix épargne + investissements modérés." },
+              { id: "dynamique", icon: "🚀", label: "Dynamique",  desc: "Rendement maximal, tolérance au risque." },
+            ].map(p => (
+              <div key={p.id}
+                onClick={() => setRisque(p.id)}
+                style={{
+                  ...G.card, cursor: "pointer", padding: 16, marginBottom: 10,
+                  border: `2px solid ${risque === p.id ? "var(--gold)" : "var(--border)"}`,
+                  opacity: risque === p.id ? 1 : 0.7,
+                }}
+              >
+                <div style={{ ...G.row }}>
+                  <span style={{ fontSize: 24 }}>{p.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, color: "var(--text)" }}>{p.label}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.desc}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+              <button style={{ ...G.btn("var(--surface)"), flex: 1 }} onClick={() => setStep(1)}>← Retour</button>
+              <button style={{ ...G.btn(), flex: 2 }} onClick={() => onDone({ nom: nom.trim(), revenuMensuel: revNum, profilRisque: risque, configured: true })}>
+                🚀 Démarrer
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+// ─── ONGLET ACCUEIL ─────────────────────────────────────────────────────────────
+function TabAccueil({ data, mois }) {
+  const periode = getPeriode(data, mois);
+  const revenus = periode.revenus.reduce((a, r) => a + r.montant, 0);
+  const depenses = periode.depenses.reduce((a, d) => a + d.montant, 0);
+  const solde = getSolde(data, mois);
+  const patrimoineNet = getPatrimoineNet(data, mois);
+
+  const investiMois = data.transactions
+    .filter(t => t.mois === mois && t.type === "investissement")
+    .reduce((a, t) => a + t.montant, 0);
+
+  // 50/30/20
+  const besoins = periode.depenses.filter(d => ["loyer","electricite","eau","gaz","transport","sante","internet","credit","assurance"].includes(d.categorie)).reduce((a,d)=>a+d.montant,0);
+  const envies = periode.depenses.filter(d => ["loisirs","famille","abonnements","shopping","education","alimentation"].includes(d.categorie)).reduce((a,d)=>a+d.montant,0);
+  const epargneTotal = (investiMois + data.transactions.filter(t=>t.mois===mois&&t.type==="objectif").reduce((a,t)=>a+t.montant,0));
+
+  const pctBesoins = revenus > 0 ? (besoins / revenus) * 100 : 0;
+  const pctEnvies = revenus > 0 ? (envies / revenus) * 100 : 0;
+  const pctEpargne = revenus > 0 ? (epargneTotal / revenus) * 100 : 0;
+
+  const tip = TIPS[new Date().getDate() % TIPS.length];
+
+  return (
+    <div>
+      {/* Patrimoine net */}
+      <div style={{ ...G.card, textAlign: "center", borderColor: "var(--gold)", background: "linear-gradient(135deg, var(--card) 0%, var(--surface) 100%)" }}>
+        <div style={{ color: "var(--muted)", fontSize: 13 }}>Patrimoine Net Total</div>
+        <div style={{ color: "var(--gold)", fontSize: 34, fontWeight: 900 }}>{fmt(patrimoineNet)} FCFA</div>
+        <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Actifs + Objectifs + Solde disponible</div>
+      </div>
+
+      {/* Alertes */}
+      {solde < 0 && <Alert type="error">⚠️ Solde négatif ce mois ! Réduisez vos dépenses.</Alert>}
+      {pctBesoins > 50 && revenus > 0 && <Alert type="warn">⚠️ Vos besoins dépassent 50% de vos revenus ({pctBesoins.toFixed(0)}%).</Alert>}
+      {pctEpargne >= 20 && revenus > 0 && <Alert type="success">🎉 Bravo ! Vous épargnez {pctEpargne.toFixed(0)}% de vos revenus ce mois.</Alert>}
+
+      {/* 4 KPI */}
+      <div style={G.grid4}>
+        <KpiCard label="Revenus" value={`${fmt(revenus)}`} sub="FCFA" icon="💵" color="var(--green)" />
+        <KpiCard label="Dépenses" value={`${fmt(depenses)}`} sub="FCFA" icon="💸" color="var(--red)" />
+        <KpiCard label="Investi" value={`${fmt(investiMois)}`} sub="ce mois" icon="📈" color="var(--blue)" />
+        <KpiCard label="Solde dispo" value={`${fmt(solde)}`} sub="FCFA" icon="💰" color={solde >= 0 ? "var(--gold)" : "var(--red)"} />
+      </div>
+
+      {/* Règle 50/30/20 */}
+      <div style={G.card}>
+        <h3 style={{ color: "var(--text)", margin: "0 0 16px" }}>📊 Règle 50/30/20</h3>
+        {[
+          { label: "🏠 Besoins", pct: pctBesoins, limit: 50, op: "≤" },
+          { label: "🎮 Envies", pct: pctEnvies, limit: 30, op: "≤" },
+          { label: "💰 Épargne", pct: pctEpargne, limit: 20, op: "≥" },
+        ].map(({ label, pct, limit, op }) => {
+          const ok = op === "≤" ? pct <= limit : pct >= limit;
+          const color = ok ? "var(--green)" : "var(--red)";
+          return (
+            <div key={label} style={{ marginBottom: 14 }}>
+              <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 13, color: "var(--text)" }}>{label}</span>
+                <span style={{ fontSize: 12, color }}>
+                  {ok ? "✅" : "⚠️"} {pct.toFixed(0)}% {op} {limit}%
+                </span>
+              </div>
+              <ProgressBar value={pct} max={100} color={ok ? "var(--green)" : "var(--red)"} />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Aperçu objectifs */}
+      {data.objectifs.length > 0 && (
+        <div style={G.card}>
+          <h3 style={{ color: "var(--text)", margin: "0 0 16px" }}>🎯 Objectifs en cours</h3>
+          {data.objectifs.slice(0, 3).map(obj => {
+            const pct = obj.cible > 0 ? Math.min(100, (obj.epargne / obj.cible) * 100) : 0;
+            return (
+              <div key={obj.id} style={{ marginBottom: 14 }}>
+                <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, color: "var(--text)" }}>{obj.icon} {obj.nom}</span>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>{fmt(obj.epargne)} / {fmt(obj.cible)} FCFA</span>
+                </div>
+                <ProgressBar value={obj.epargne} max={obj.cible} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Conseil du jour */}
+      <div style={{ ...G.card, borderColor: "var(--gold)", background: "var(--surface)" }}>
+        <div style={{ fontSize: 12, color: "var(--gold)", marginBottom: 4 }}>💡 Conseil du jour</div>
+        <div style={{ fontSize: 14, color: "var(--text)" }}>{tip}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ONGLET BUDGET ──────────────────────────────────────────────────────────────
+function TabBudget({ data, setData, mois }) {
+  const [tab, setTab] = useState("depenses");
+  const [filtreCat, setFiltreCat] = useState(null);
+  const [hover, setHover] = useState(null);
+
+  // Formulaire revenu
+  const [rLib, setRLib] = useState("");
+  const [rMont, setRMont] = useState("");
+  const [rRec, setRRec] = useState(false);
+
+  // Formulaire dépense
+  const [dLib, setDLib] = useState("");
+  const [dMont, setDMont] = useState("");
+  const [dCat, setDCat] = useState("autre");
+  const [dRec, setDRec] = useState(false);
+
+  const periode = getPeriode(data, mois);
+
+  const addRevenu = () => {
+    const m = parseFloat(rMont);
+    if (!rLib.trim() || isNaN(m) || m <= 0) return;
+    const newR = { id: genId(), label: rLib.trim(), montant: m, recurrent: rRec };
+    const newData = {
+      ...data,
+      periodes: {
+        ...data.periodes,
+        [mois]: {
+          ...getPeriode(data, mois),
+          revenus: [...getPeriode(data, mois).revenus, newR],
+        }
+      }
+    };
+    setData(newData);
+    setRLib(""); setRMont(""); setRRec(false);
+  };
+
+  const addDepense = () => {
+    const m = parseFloat(dMont);
+    if (!dLib.trim() || isNaN(m) || m <= 0) return;
+    const newD = { id: genId(), label: dLib.trim(), montant: m, categorie: dCat, recurrent: dRec };
+    const newData = {
+      ...data,
+      periodes: {
+        ...data.periodes,
+        [mois]: {
+          ...getPeriode(data, mois),
+          depenses: [...getPeriode(data, mois).depenses, newD],
+        }
+      }
+    };
+    setData(newData);
+    setDLib(""); setDMont(""); setDRec(false);
+  };
+
+  const delRevenu = (id) => {
+    const newData = { ...data, periodes: { ...data.periodes, [mois]: { ...getPeriode(data, mois), revenus: getPeriode(data, mois).revenus.filter(r => r.id !== id) } } };
+    setData(newData);
+  };
+
+  const delDepense = (id) => {
+    const newData = { ...data, periodes: { ...data.periodes, [mois]: { ...getPeriode(data, mois), depenses: getPeriode(data, mois).depenses.filter(d => d.id !== id) } } };
+    setData(newData);
+  };
+
+  const depFiltrees = filtreCat
+    ? periode.depenses.filter(d => d.categorie === filtreCat)
+    : periode.depenses;
+
+  const fixes = depFiltrees.filter(d => {
+    const cat = CATEGORIES.find(c => c.id === d.categorie);
+    return cat?.type === "fixe";
+  });
+  const variables = depFiltrees.filter(d => {
+    const cat = CATEGORIES.find(c => c.id === d.categorie);
+    return cat?.type !== "fixe";
+  });
+
+  const ItemRow = ({ item, onDelete, isHovered, onMouseEnter, onMouseLeave }) => (
+    <div
+      className="rw"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{
+        ...G.row, justifyContent: "space-between", padding: "10px 0",
+        borderBottom: "1px solid var(--border)", position: "relative",
+      }}
+    >
+      <div>
+        <span style={{ fontSize: 13, color: "var(--text)" }}>
+          {item.recurrent && <span style={{ color: "var(--gold)", marginRight: 4 }}>🔄</span>}
+          {item.label}
+          {item.categorie && (
+            <span style={{ marginLeft: 6, fontSize: 11, color: "var(--muted)" }}>
+              {CATEGORIES.find(c => c.id === item.categorie)?.icon}
+            </span>
+          )}
+        </span>
+      </div>
+      <div style={G.row}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{fmt(item.montant)} FCFA</span>
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(item.id); }}
+          className="dl"
+          style={{
+            background: "var(--red)", border: "none", borderRadius: "50%",
+            width: 22, height: 22, color: "#fff", cursor: "pointer", fontSize: 12,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            opacity: isHovered ? 1 : 0, transition: "opacity 0.2s", padding: 0, marginLeft: 6,
+          }}
+        >×</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Tabs revenus / dépenses */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {["revenus","depenses"].map(t => (
+          <button key={t} onClick={() => setTab(t)} style={{
+            ...G.btn(tab === t ? "var(--gold)" : "var(--surface)"),
+            flex: 1, color: tab === t ? "#0A0F1A" : "var(--text)",
+          }}>
+            {t === "revenus" ? "💵 Revenus" : "💸 Dépenses"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "revenus" && (
+        <>
+          <div style={G.card}>
+            <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>Ajouter un revenu</h3>
+            <label style={G.label}>Libellé</label>
+            <input style={{ ...G.input, marginBottom: 10 }} value={rLib} onChange={e => setRLib(e.target.value)} placeholder="Ex: Salaire, Freelance..." />
+            <label style={G.label}>Montant (FCFA)</label>
+            <input style={{ ...G.input, marginBottom: 10 }} type="number" value={rMont} onChange={e => setRMont(e.target.value)} placeholder="Ex: 350000" />
+            <div style={{ ...G.row, marginBottom: 14 }}>
+              <input type="checkbox" id="rrec" checked={rRec} onChange={e => setRRec(e.target.checked)} />
+              <label htmlFor="rrec" style={{ ...G.label, margin: 0, cursor: "pointer" }}>🔄 Récurrent</label>
+            </div>
+            <button style={{ ...G.btn(), width: "100%" }} onClick={addRevenu}>+ Ajouter</button>
+          </div>
+
+          <div style={G.card}>
+            <h3 style={{ color: "var(--text)", margin: "0 0 8px" }}>
+              Revenus du mois — <span style={{ color: "var(--green)" }}>{fmt(periode.revenus.reduce((a,r)=>a+r.montant,0))} FCFA</span>
+            </h3>
+            {periode.revenus.length === 0 && <div style={{ color: "var(--muted)", fontSize: 13 }}>Aucun revenu saisi.</div>}
+            {periode.revenus.map(r => (
+              <ItemRow key={r.id} item={r} onDelete={delRevenu}
+                isHovered={hover === r.id}
+                onMouseEnter={() => setHover(r.id)}
+                onMouseLeave={() => setHover(null)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {tab === "depenses" && (
+        <>
+          <div style={G.card}>
+            <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>Ajouter une dépense</h3>
+            <div style={G.grid2}>
+              <div>
+                <label style={G.label}>Libellé</label>
+                <input style={G.input} value={dLib} onChange={e => setDLib(e.target.value)} placeholder="Ex: Loyer, Courses..." />
+              </div>
+              <div>
+                <label style={G.label}>Montant (FCFA)</label>
+                <input style={G.input} type="number" value={dMont} onChange={e => setDMont(e.target.value)} placeholder="Ex: 120000" />
+              </div>
+            </div>
+            <label style={{ ...G.label, marginTop: 10 }}>Catégorie</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {CATEGORIES.map(cat => (
+                <button key={cat.id} onClick={() => setDCat(cat.id)} style={{
+                  background: dCat === cat.id ? "var(--gold)" : "var(--surface)",
+                  border: `1px solid ${dCat === cat.id ? "var(--gold)" : "var(--border)"}`,
+                  borderRadius: 6, padding: "4px 10px", cursor: "pointer",
+                  color: dCat === cat.id ? "#0A0F1A" : "var(--text)", fontSize: 12,
+                  fontFamily: "Palatino Linotype, Georgia, serif",
+                }}>
+                  {cat.icon} {cat.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ ...G.row, marginBottom: 14 }}>
+              <input type="checkbox" id="drec" checked={dRec} onChange={e => setDRec(e.target.checked)} />
+              <label htmlFor="drec" style={{ ...G.label, margin: 0, cursor: "pointer" }}>🔄 Récurrent</label>
+            </div>
+            <button style={{ ...G.btn(), width: "100%" }} onClick={addDepense}>+ Ajouter</button>
+          </div>
+
+          {/* Filtre catégorie */}
+          <div style={{ ...G.row, flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+            <button onClick={() => setFiltreCat(null)} style={{
+              ...G.btnSm(filtreCat === null ? "var(--gold)" : "var(--surface)"),
+              color: filtreCat === null ? "#0A0F1A" : "var(--text)",
+            }}>Tout</button>
+            {CATEGORIES.map(cat => (
+              <button key={cat.id} onClick={() => setFiltreCat(filtreCat === cat.id ? null : cat.id)} style={{
+                ...G.btnSm(filtreCat === cat.id ? "var(--gold)" : "var(--surface)"),
+                color: filtreCat === cat.id ? "#0A0F1A" : "var(--text)",
+                fontSize: 16, padding: "4px 8px",
+              }}>{cat.icon}</button>
+            ))}
+          </div>
+
+          {["Charges fixes", "Dépenses variables"].map((groupLabel, gi) => {
+            const items = gi === 0 ? fixes : variables;
+            const total = items.reduce((a,d)=>a+d.montant,0);
+            return (
+              <div key={groupLabel} style={G.card}>
+                <h3 style={{ color: "var(--text)", margin: "0 0 8px" }}>
+                  {groupLabel} — <span style={{ color: "var(--red)" }}>{fmt(total)} FCFA</span>
+                </h3>
+                {items.length === 0 && <div style={{ color: "var(--muted)", fontSize: 13 }}>Aucune dépense.</div>}
+                {items.map(d => (
+                  <ItemRow key={d.id} item={d} onDelete={delDepense}
+                    isHovered={hover === d.id}
+                    onMouseEnter={() => setHover(d.id)}
+                    onMouseLeave={() => setHover(null)}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+}
+// ─── ONGLET GRAPHIQUES ──────────────────────────────────────────────────────────
+function TabGraphiques({ data, mois }) {
+  const periode = getPeriode(data, mois);
+  const revenus = periode.revenus.reduce((a,r)=>a+r.montant,0);
+  const depenses = periode.depenses.reduce((a,d)=>a+d.montant,0);
+  const solde = getSolde(data, mois);
+  const investi = data.transactions.filter(t=>t.mois===mois&&t.type==="investissement").reduce((a,t)=>a+t.montant,0);
+  const epargneObj = data.transactions.filter(t=>t.mois===mois&&t.type==="objectif").reduce((a,t)=>a+t.montant,0);
+  const totalEpargne = investi + epargneObj;
+
+  const tauxEpargne = revenus > 0 ? (totalEpargne / revenus) * 100 : 0;
+  const depJour = depenses / 30;
+  const autonomie = depJour > 0 ? solde / depJour : 0;
+
+  // Fonds d'urgence (actifs de type urgence)
+  const fondsUrgence = data.patrimoine.filter(p=>p.type==="urgence").reduce((a,p)=>a+p.valeurActuelle,0);
+  const objectifUrgence = depenses * 3;
+
+  // PieChart dépenses par catégorie
+  const catData = CATEGORIES.map(cat => ({
+    name: `${cat.icon} ${cat.label}`,
+    value: periode.depenses.filter(d=>d.categorie===cat.id).reduce((a,d)=>a+d.montant,0),
+  })).filter(d=>d.value>0);
+
+  // Répartition fixes/envies/épargne
+  const besoinsTotal = periode.depenses.filter(d=>["loyer","electricite","eau","gaz","transport","sante","internet","credit","assurance"].includes(d.categorie)).reduce((a,d)=>a+d.montant,0);
+  const enviesTotal = depenses - besoinsTotal;
+  const pieData = [
+    { name: "Besoins", value: besoinsTotal, color: "#3B82F6" },
+    { name: "Envies", value: enviesTotal, color: "#8B5CF6" },
+    { name: "Épargne", value: totalEpargne, color: "#10B981" },
+  ].filter(d=>d.value>0);
+
+  // Multi-mois
+  const allMois = Object.keys(data.periodes).sort();
+  const multiData = allMois.map(m => {
+    const p = data.periodes[m];
+    const rev = p.revenus.reduce((a,r)=>a+r.montant,0);
+    const dep = p.depenses.reduce((a,d)=>a+d.montant,0);
+    const sol = getSolde(data, m);
+    return { mois: moisLabel(m), Revenus: rev, Dépenses: dep, Solde: sol };
+  });
+
+  // Top 5 dépenses
+  const top5 = [...periode.depenses].sort((a,b)=>b.montant-a.montant).slice(0,5);
+  const maxDep = top5[0]?.montant || 1;
+
+  const COLORS = ["#C9A84C","#3B82F6","#10B981","#8B5CF6","#EF4444","#F59E0B","#06B6D4","#EC4899"];
+
+  return (
+    <div>
+      {/* 3 KPI */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+        <KpiCard label="Taux épargne" value={`${tauxEpargne.toFixed(1)}%`} icon="💰" color={tauxEpargne>=20?"var(--green)":"var(--red)"} />
+        <KpiCard label="Dépense/jour" value={`${fmt(depJour)}`} sub="FCFA" icon="📅" />
+        <KpiCard label="Autonomie" value={`${Math.round(autonomie)} j`} icon="🗓️" color={autonomie>=30?"var(--green)":"var(--red)"} />
+      </div>
+
+      {/* Fonds d'urgence */}
+      <div style={G.card}>
+        <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>🛡️ Fonds d'urgence</h3>
+        <div style={{ ...G.row, justifyContent:"space-between", marginBottom:8 }}>
+          <span style={{ fontSize:13, color:"var(--muted)" }}>Constitué</span>
+          <span style={{ fontSize:14, fontWeight:700, color:"var(--gold)" }}>{fmt(fondsUrgence)} FCFA</span>
+        </div>
+        <div style={{ ...G.row, justifyContent:"space-between", marginBottom:8 }}>
+          <span style={{ fontSize:13, color:"var(--muted)" }}>Objectif (3 mois)</span>
+          <span style={{ fontSize:13, color:"var(--muted)" }}>{fmt(objectifUrgence)} FCFA</span>
+        </div>
+        {depenses > 0 && (
+          <div style={{ ...G.row, justifyContent:"space-between", marginBottom:8 }}>
+            <span style={{ fontSize:13, color:"var(--muted)" }}>Couvre</span>
+            <span style={{ fontSize:13, color:"var(--text)", fontWeight:700 }}>
+              {(fondsUrgence / (depenses || 1)).toFixed(1)} mois
+            </span>
+          </div>
+        )}
+        <ProgressBar value={fondsUrgence} max={objectifUrgence || 1} color="var(--green)" />
+      </div>
+
+      {/* Répartition budget mini pie */}
+      {pieData.length > 0 && (
+        <div style={G.card}>
+          <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>Répartition budget</h3>
+          <ResponsiveContainer width="100%" height={180}>
+            <PieChart>
+              <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={70} label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                {pieData.map((e,i)=><Cell key={i} fill={e.color}/>)}
+              </Pie>
+              <Tooltip formatter={v=>`${fmt(v)} FCFA`} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Évolution multi-mois */}
+      {multiData.length > 1 && (
+        <div style={G.card}>
+          <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>📈 Évolution multi-mois</h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={multiData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="mois" tick={{fill:"var(--muted)",fontSize:11}} />
+              <YAxis tick={{fill:"var(--muted)",fontSize:11}} tickFormatter={v=>fmt(v/1000)+"k"} />
+              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"var(--card)",border:"1px solid var(--border)"}} />
+              <Legend />
+              <Line type="monotone" dataKey="Revenus" stroke="var(--green)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Dépenses" stroke="var(--red)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="Solde" stroke="var(--gold)" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* BarChart Revenus vs Dépenses */}
+      {multiData.length > 0 && (
+        <div style={G.card}>
+          <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>📊 Revenus vs Dépenses</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={multiData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="mois" tick={{fill:"var(--muted)",fontSize:11}} />
+              <YAxis tick={{fill:"var(--muted)",fontSize:11}} tickFormatter={v=>fmt(v/1000)+"k"} />
+              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"var(--card)",border:"1px solid var(--border)"}} />
+              <Legend />
+              <Bar dataKey="Revenus" fill="var(--green)" radius={[4,4,0,0]} />
+              <Bar dataKey="Dépenses" fill="var(--red)" radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* PieChart dépenses par catégorie */}
+      {catData.length > 0 && (
+        <div style={G.card}>
+          <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>🍕 Dépenses par catégorie</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={catData} dataKey="value" cx="50%" cy="50%" outerRadius={75} label={false}>
+                {catData.map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+              </Pie>
+              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"var(--card)",border:"1px solid var(--border)"}} />
+              <Legend formatter={(v)=>v.length>18?v.slice(0,18)+"…":v} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Top 5 */}
+      {top5.length > 0 && (
+        <div style={G.card}>
+          <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>🏆 Top 5 dépenses</h3>
+          {top5.map((d,i) => (
+            <div key={d.id} style={{ marginBottom:10 }}>
+              <div style={{ ...G.row, justifyContent:"space-between", marginBottom:4 }}>
+                <span style={{ fontSize:13, color:"var(--text)" }}>
+                  {CATEGORIES.find(c=>c.id===d.categorie)?.icon} {d.label}
+                </span>
+                <span style={{ fontSize:12, color:"var(--muted)" }}>
+                  {fmt(d.montant)} FCFA ({revenus>0?(d.montant/revenus*100).toFixed(1):0}%)
+                </span>
+              </div>
+              <div style={{ background:"var(--surface)", borderRadius:99, height:6, overflow:"hidden" }}>
+                <div style={{ width:`${(d.montant/maxDep)*100}%`, height:"100%", background:COLORS[i], borderRadius:99 }}/>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ONGLET OBJECTIFS ────────────────────────────────────────────────────────────
+function TabObjectifs({ data, setData, mois }) {
+  const [showForm, setShowForm] = useState(false);
+  const [nom, setNom] = useState("");
+  const [cible, setCible] = useState("");
+  const [icon, setIcon] = useState("🏠");
+
+  const [actionObj, setActionObj] = useState(null); // { id, type: 'alimenter'|'retirer', montant }
+  const [montantAction, setMontantAction] = useState("");
+
+  const solde = getSolde(data, mois);
+
+  const creerObjectif = () => {
+    const c = parseFloat(cible);
+    if (!nom.trim() || isNaN(c) || c <= 0) return;
+    const obj = { id: genId(), nom: nom.trim(), cible: c, epargne: 0, icon };
+    setData({ ...data, objectifs: [...data.objectifs, obj] });
+    setNom(""); setCible(""); setIcon("🏠"); setShowForm(false);
+  };
+
+  const alimenter = (objId) => {
+    const m = parseFloat(montantAction);
+    if (isNaN(m) || m <= 0 || m > solde) return;
+    const tx = { id: genId(), date: new Date().toISOString().split("T")[0], mois, type: "objectif", cible: "objectif", montant: m, objectifId: objId };
+    const newData = {
+      ...data,
+      objectifs: data.objectifs.map(o => o.id === objId ? { ...o, epargne: o.epargne + m } : o),
+      transactions: [...data.transactions, tx],
+      periodes: {
+        ...data.periodes,
+        [mois]: { ...getPeriode(data, mois), allocations: (getPeriode(data, mois).allocations || 0) + m }
+      }
+    };
+    setData(newData);
+    setActionObj(null); setMontantAction("");
+  };
+
+  const retirer = (objId) => {
+    const m = parseFloat(montantAction);
+    const obj = data.objectifs.find(o => o.id === objId);
+    if (!obj || isNaN(m) || m <= 0 || m > obj.epargne) return;
+    const tx = { id: genId(), date: new Date().toISOString().split("T")[0], mois, type: "retrait_objectif", cible: "objectif", montant: m, objectifId: objId };
+    const newData = {
+      ...data,
+      objectifs: data.objectifs.map(o => o.id === objId ? { ...o, epargne: Math.max(0, o.epargne - m) } : o),
+      transactions: [...data.transactions, tx],
+      periodes: {
+        ...data.periodes,
+        [mois]: { ...getPeriode(data, mois), allocations: Math.max(0, (getPeriode(data, mois).allocations || 0) - m) }
+      }
+    };
+    setData(newData);
+    setActionObj(null); setMontantAction("");
+  };
+
+  const supprimerObjectif = (objId) => {
+    const txs = data.transactions.filter(t => t.objectifId === objId);
+    let periodes = { ...data.periodes };
+    txs.forEach(tx => {
+      if (tx.type === "objectif") {
+        if (!periodes[tx.mois]) periodes[tx.mois] = DEFAULT_PERIODE();
+        periodes[tx.mois] = { ...periodes[tx.mois], allocations: Math.max(0, (periodes[tx.mois].allocations || 0) - tx.montant) };
+      }
+    });
+    setData({
+      ...data,
+      objectifs: data.objectifs.filter(o => o.id !== objId),
+      transactions: data.transactions.filter(t => t.objectifId !== objId),
+      periodes,
+    });
+  };
+
+  return (
+    <div>
+      <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ color: "var(--muted)", fontSize: 13 }}>Solde disponible : <span style={{ color: "var(--gold)", fontWeight: 700 }}>{fmt(solde)} FCFA</span></div>
+        <button style={G.btnSm()} onClick={() => setShowForm(!showForm)}>+ Nouvel objectif</button>
+      </div>
+
+      {showForm && (
+        <div style={G.card}>
+          <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>Créer un objectif</h3>
+          <label style={G.label}>Nom de l'objectif</label>
+          <input style={{ ...G.input, marginBottom: 10 }} value={nom} onChange={e => setNom(e.target.value)} placeholder="Ex: Voiture, Vacances..." />
+          <label style={G.label}>Montant cible (FCFA)</label>
+          <input style={{ ...G.input, marginBottom: 10 }} type="number" value={cible} onChange={e => setCible(e.target.value)} placeholder="Ex: 2000000" />
+          <label style={G.label}>Icône</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+            {ICONS_OBJECTIFS.map(ic => (
+              <button key={ic} onClick={() => setIcon(ic)} style={{
+                background: icon === ic ? "var(--gold)" : "var(--surface)",
+                border: `1px solid ${icon === ic ? "var(--gold)" : "var(--border)"}`,
+                borderRadius: 8, width: 40, height: 40, fontSize: 18, cursor: "pointer",
+              }}>{ic}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button style={{ ...G.btn("var(--surface)"), flex: 1 }} onClick={() => setShowForm(false)}>Annuler</button>
+            <button style={{ ...G.btn(), flex: 2 }} onClick={creerObjectif}>Créer</button>
+          </div>
+        </div>
+      )}
+
+      {data.objectifs.length === 0 && !showForm && (
+        <div style={{ ...G.card, textAlign: "center", color: "var(--muted)" }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>🎯</div>
+          <div>Aucun objectif défini. Créez votre premier objectif !</div>
+        </div>
+      )}
+
+      {data.objectifs.map(obj => {
+        const pct = obj.cible > 0 ? Math.min(100, (obj.epargne / obj.cible) * 100) : 0;
+        const atteint = pct >= 100;
+        const isAction = actionObj?.id === obj.id;
+        return (
+          <div key={obj.id} style={{ ...G.card, border: atteint ? "1px solid var(--green)" : "1px solid var(--border)" }}>
+            <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ ...G.row }}>
+                <span style={{ fontSize: 28 }}>{obj.icon}</span>
+                <div>
+                  <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 15 }}>{obj.nom}</div>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                    {fmt(obj.epargne)} / {fmt(obj.cible)} FCFA ({pct.toFixed(0)}%)
+                  </div>
+                </div>
+              </div>
+              <button onClick={e => { e.stopPropagation(); supprimerObjectif(obj.id); }}
+                style={{ background: "none", border: "none", color: "var(--red)", fontSize: 18, cursor: "pointer" }}>×</button>
+            </div>
+            <ProgressBar value={obj.epargne} max={obj.cible} color={atteint ? "var(--green)" : "var(--gold)"} height={10} />
+            {atteint && <div style={{ textAlign: "center", marginTop: 8, fontSize: 14 }}>🎉 Objectif atteint !</div>}
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
+              Reste : {fmt(Math.max(0, obj.cible - obj.epargne))} FCFA
+            </div>
+
+            {!atteint && (
+              <div style={{ ...G.row, marginTop: 10, gap: 8 }}>
+                <button onClick={e => { e.stopPropagation(); setActionObj({ id: obj.id, type: "alimenter" }); setMontantAction(""); }}
+                  style={G.btnSm("var(--green)")}>💰 Alimenter</button>
+                {obj.epargne > 0 && (
+                  <button onClick={e => { e.stopPropagation(); setActionObj({ id: obj.id, type: "retirer" }); setMontantAction(""); }}
+                    style={G.btnSm("var(--surface)")}>↩ Retirer</button>
+                )}
+              </div>
+            )}
+
+            {isAction && (
+              <div style={{ marginTop: 12, padding: 12, background: "var(--surface)", borderRadius: 8 }} onClick={e => e.stopPropagation()}>
+                <label style={G.label}>
+                  {actionObj.type === "alimenter" ? `Montant (max ${fmt(solde)} FCFA)` : `Montant (max ${fmt(obj.epargne)} FCFA)`}
+                </label>
+                <div style={G.row}>
+                  <input style={{ ...G.input, flex: 1 }} type="number" value={montantAction} onChange={e => setMontantAction(e.target.value)} />
+                  <button onClick={e => { e.stopPropagation(); actionObj.type === "alimenter" ? alimenter(obj.id) : retirer(obj.id); }}
+                    style={G.btnSm("var(--gold)")}>✓</button>
+                  <button onClick={e => { e.stopPropagation(); setActionObj(null); }}
+                    style={G.btnSm("var(--surface)")}>✗</button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+// ─── ONGLET INVESTIR ─────────────────────────────────────────────────────────────
+function TabInvestir({ data, setData, mois }) {
+  const [expanded, setExpanded] = useState(null);
+  const [montants, setMontants] = useState({});
+  const [noms, setNoms] = useState({});
+  const [showHistorique, setShowHistorique] = useState(false);
+  const [confirmAnnuler, setConfirmAnnuler] = useState(null);
+
+  const solde = getSolde(data, mois);
+  const totalInvesti = getTotalInvesti(data);
+
+  const investir = (type) => {
+    const m = parseFloat(montants[type.id] || "0");
+    if (isNaN(m) || m <= 0 || m > solde) return;
+    const nom = noms[type.id] || type.label;
+    const date = new Date().toISOString().split("T")[0];
+
+    // Cherche actif existant du même type et même nom (source app)
+    const existingActif = data.patrimoine.find(p => p.type === type.assetType && p.nom === nom && p.source === "app");
+
+    let patrimoine;
+    let patrimoineId;
+    if (existingActif) {
+      patrimoineId = existingActif.id;
+      patrimoine = data.patrimoine.map(p =>
+        p.id === existingActif.id
+          ? { ...p, valeurInitiale: p.valeurInitiale + m, valeurActuelle: p.valeurActuelle + m }
+          : p
+      );
+    } else {
+      patrimoineId = genId();
+      const newActif = { id: patrimoineId, type: type.assetType, nom, valeurInitiale: m, valeurActuelle: m, dateAchat: date, source: "app" };
+      patrimoine = [...data.patrimoine, newActif];
+    }
+
+    const tx = { id: genId(), date, mois, type: "investissement", cible: type.id, montant: m, patrimoineId };
+
+    const newData = {
+      ...data,
+      patrimoine,
+      transactions: [...data.transactions, tx],
+      periodes: {
+        ...data.periodes,
+        [mois]: { ...getPeriode(data, mois), allocations: (getPeriode(data, mois).allocations || 0) + m }
+      }
+    };
+    setData(newData);
+    setMontants(prev => ({ ...prev, [type.id]: "" }));
+    setNoms(prev => ({ ...prev, [type.id]: "" }));
+    setExpanded(null);
+  };
+
+  const supprimerDepot = (txId) => {
+    const tx = data.transactions.find(t => t.id === txId);
+    if (!tx) return;
+    const actif = data.patrimoine.find(p => p.id === tx.patrimoineId);
+    let patrimoine = data.patrimoine;
+    if (actif) {
+      const newVal = Math.max(0, actif.valeurActuelle - tx.montant);
+      const newInit = Math.max(0, actif.valeurInitiale - tx.montant);
+      if (newVal <= 0 && newInit <= 0) {
+        // Vérifier s'il y a d'autres transactions pour cet actif
+        const otherTx = data.transactions.filter(t => t.patrimoineId === actif.id && t.id !== txId);
+        if (otherTx.length === 0) {
+          patrimoine = data.patrimoine.filter(p => p.id !== actif.id);
+        } else {
+          patrimoine = data.patrimoine.map(p => p.id === actif.id ? { ...p, valeurInitiale: newInit, valeurActuelle: newVal } : p);
+        }
+      } else {
+        patrimoine = data.patrimoine.map(p => p.id === actif.id ? { ...p, valeurInitiale: newInit, valeurActuelle: newVal } : p);
+      }
+    }
+
+    const periodes = { ...data.periodes };
+    if (periodes[tx.mois]) {
+      periodes[tx.mois] = { ...periodes[tx.mois], allocations: Math.max(0, (periodes[tx.mois].allocations || 0) - tx.montant) };
+    }
+
+    setData({
+      ...data,
+      patrimoine,
+      transactions: data.transactions.filter(t => t.id !== txId),
+      periodes,
+    });
+    setConfirmAnnuler(null);
+  };
+
+  const txInvest = data.transactions.filter(t => t.type === "investissement").sort((a, b) => b.date.localeCompare(a.date));
+
+  return (
+    <div>
+      {/* Banner */}
+      <div style={{ ...G.card, borderColor: "var(--gold)" }}>
+        <div style={G.grid2}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ color: "var(--muted)", fontSize: 12 }}>Solde disponible</div>
+            <div style={{ color: "var(--gold)", fontSize: 22, fontWeight: 800 }}>{fmt(solde)} FCFA</div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ color: "var(--muted)", fontSize: 12 }}>Total investi</div>
+            <div style={{ color: "var(--blue)", fontSize: 22, fontWeight: 800 }}>{fmt(totalInvesti)} FCFA</div>
+          </div>
+        </div>
+      </div>
+
+      {solde <= 0 && <Alert type="error">⚠️ Solde insuffisant pour investir ce mois.</Alert>}
+
+      {/* Types d'investissement */}
+      {INVEST_TYPES.map(type => {
+        const isExp = expanded === type.id;
+        const m = parseFloat(montants[type.id] || "0");
+        return (
+          <div key={type.id} style={{ ...G.card, padding: 0, overflow: "hidden" }}>
+            <div
+              onClick={() => setExpanded(isExp ? null : type.id)}
+              style={{
+                padding: 16, cursor: "pointer", display: "flex",
+                alignItems: "center", justifyContent: "space-between",
+                background: isExp ? "var(--surface)" : "transparent",
+              }}
+            >
+              <div style={{ ...G.row }}>
+                <span style={{ fontSize: 24 }}>{type.icon}</span>
+                <span style={{ fontWeight: 700, color: "var(--text)", fontSize: 15 }}>{type.label}</span>
+              </div>
+              <span style={{ color: "var(--muted)" }}>{isExp ? "▲" : "▼"}</span>
+            </div>
+            {isExp && (
+              <div style={{ padding: 16, borderTop: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
+                {type.needsName && (
+                  <>
+                    <label style={G.label}>Nom du placement</label>
+                    <input style={{ ...G.input, marginBottom: 10 }} value={noms[type.id] || ""} onChange={e => setNoms(prev => ({ ...prev, [type.id]: e.target.value }))} placeholder={`Ex: ${type.id === "fcp" ? "Djamo Invest" : type.id === "brvm" ? "SIB" : "BTC"}`} />
+                  </>
+                )}
+                <label style={G.label}>Montant (FCFA)</label>
+                <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                  {[0.25, 0.5, 0.75, 1].map(r => (
+                    <button key={r} onClick={() => setMontants(prev => ({ ...prev, [type.id]: String(Math.floor(solde * r)) }))}
+                      style={G.btnSm("var(--surface)")}>
+                      {r === 1 ? "Tout" : `${r * 100}%`}
+                    </button>
+                  ))}
+                </div>
+                <input style={{ ...G.input, marginBottom: 12 }} type="number" value={montants[type.id] || ""} onChange={e => setMontants(prev => ({ ...prev, [type.id]: e.target.value }))} placeholder="Ex: 50000" />
+                {m > solde && <Alert type="error">Montant supérieur au solde disponible.</Alert>}
+                <button style={{ ...G.btn(), width: "100%", opacity: (m > 0 && m <= solde) ? 1 : 0.5 }}
+                  onClick={() => investir(type)} disabled={m <= 0 || m > solde}>
+                  Investir ✓
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Historique */}
+      <div style={{ marginTop: 16 }}>
+        <button style={{ ...G.btn("var(--surface)"), width: "100%" }} onClick={() => setShowHistorique(!showHistorique)}>
+          {showHistorique ? "▲ Masquer" : "▼ Afficher"} l'historique ({txInvest.length})
+        </button>
+        {showHistorique && (
+          <div style={{ ...G.card, marginTop: 8 }}>
+            <h3 style={{ color: "var(--text)", margin: "0 0 12px" }}>Historique des dépôts</h3>
+            {txInvest.length === 0 && <div style={{ color: "var(--muted)", fontSize: 13 }}>Aucun investissement enregistré.</div>}
+            {txInvest.map(tx => {
+              const actif = data.patrimoine.find(p => p.id === tx.patrimoineId);
+              const isConfirm = confirmAnnuler === tx.id;
+              return (
+                <div key={tx.id} style={{ borderBottom: "1px solid var(--border)", padding: "10px 0" }}>
+                  <div style={{ ...G.row, justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
+                        {actif?.nom || tx.cible}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                        {tx.date} · {moisLabel(tx.mois)}
+                      </div>
+                    </div>
+                    <div style={{ ...G.row }}>
+                      <span style={{ color: "var(--gold)", fontWeight: 700, fontSize: 13 }}>{fmt(tx.montant)} FCFA</span>
+                      {!isConfirm && (
+                        <button onClick={e => { e.stopPropagation(); setConfirmAnnuler(tx.id); }}
+                          style={G.btnSm("var(--surface)")}>↩ Annuler</button>
+                      )}
+                    </div>
+                  </div>
+                  {isConfirm && (
+                    <div style={{ marginTop: 8, padding: 10, background: "var(--surface)", borderRadius: 8 }}>
+                      <div style={{ fontSize: 13, color: "var(--text)", marginBottom: 8 }}>
+                        Confirmer l'annulation de {fmt(tx.montant)} FCFA ?
+                      </div>
+                      <div style={G.row}>
+                        <button onClick={() => supprimerDepot(tx.id)} style={G.btnSm("var(--green)")}>Oui ✓</button>
+                        <button onClick={() => setConfirmAnnuler(null)} style={G.btnSm("var(--surface)")}>Non ✗</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+// ─── ONGLET CONSEIL ──────────────────────────────────────────────────────────────
+function TabConseil({ data, mois }) {
+  const solde = getSolde(data, mois);
+  const { profilRisque } = data.profil;
+
+  const [capital, setCapital] = useState("500000");
+  const [versement, setVersement] = useState("50000");
+  const [duree, setDuree] = useState("10");
+  const [taux, setTaux] = useState("7");
+  const [mode, setMode] = useState("composes"); // composes | simples
+
+  const P = parseFloat(capital) || 0;
+  const V = parseFloat(versement) || 0;
+  const n = parseFloat(duree) || 0;
+  const r = (parseFloat(taux) || 0) / 100;
+
+  let capitalFinal = 0;
+  let totalVerse = P + V * n * 12;
+
+  if (mode === "composes") {
+    // C = P*(1+r)^n + V*12 * ((1+r)^n - 1)/r si r != 0
+    if (r === 0) {
+      capitalFinal = P + V * n * 12;
+    } else {
+      capitalFinal = P * Math.pow(1 + r, n) + (V * 12) * (Math.pow(1 + r, n) - 1) / r;
+    }
+  } else {
+    // Intérêts simples : C = P*(1 + r*n) + V*12*n*(1 + r*(n/2))
+    capitalFinal = P * (1 + r * n) + V * n * 12;
+  }
+
+  const gain = capitalFinal - totalVerse;
+
+  // Chart projection
+  const projData = [];
+  for (let y = 0; y <= n; y++) {
+    let val = 0, paye = P + V * y * 12;
+    if (mode === "composes") {
+      val = r === 0 ? paye : P * Math.pow(1 + r, y) + (V * 12) * (r === 0 ? y : (Math.pow(1 + r, y) - 1) / r);
+    } else {
+      val = P * (1 + r * y) + V * y * 12;
+    }
+    projData.push({ an: `An ${y}`, Valeur: Math.round(val), Versé: Math.round(paye) });
+  }
+
+  // Placements filtrés par profil
+  const maxRisk = profilRisque === "prudent" ? 2 : profilRisque === "equilibre" ? 3 : 5;
+  const placementsFiltrés = PLACEMENTS.filter(p => p.risk <= maxRisk);
+
+  // Stratégie
+  const strategies = {
+    prudent: [{ label: "Épargne sécurité", pct: 50, color: "#10B981" }, { label: "FCP", pct: 40, color: "#3B82F6" }, { label: "BRVM", pct: 10, color: "#C9A84C" }],
+    equilibre: [{ label: "Épargne sécurité", pct: 30, color: "#10B981" }, { label: "FCP", pct: 30, color: "#3B82F6" }, { label: "BRVM", pct: 30, color: "#C9A84C" }, { label: "Terrain", pct: 10, color: "#8B5CF6" }],
+    dynamique: [{ label: "Épargne sécurité", pct: 20, color: "#10B981" }, { label: "BRVM", pct: 35, color: "#C9A84C" }, { label: "Terrain/Immo", pct: 25, color: "#8B5CF6" }, { label: "Crypto", pct: 20, color: "#F59E0B" }],
+  };
+  const strategie = strategies[profilRisque] || strategies.equilibre;
+
+  return (
+    <div>
+      {/* Banner profil */}
+      <div style={{ ...G.card, borderColor: "var(--gold)" }}>
+        <div style={G.grid2}>
+          <div>
+            <div style={{ color: "var(--muted)", fontSize: 12 }}>Profil investisseur</div>
+            <div style={{ color: "var(--gold)", fontSize: 16, fontWeight: 700, textTransform: "capitalize" }}>{profilRisque}</div>
+          </div>
+          <div>
+            <div style={{ color: "var(--muted)", fontSize: 12 }}>Solde mobilisable</div>
+            <div style={{ color: "var(--green)", fontSize: 16, fontWeight: 700 }}>{fmt(solde)} FCFA</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Simulateur */}
+      <div style={G.card}>
+        <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>🧮 Simulateur d'épargne</h3>
+        <div style={G.grid2}>
+          <div>
+            <label style={G.label}>Capital initial (FCFA)</label>
+            <input style={G.input} type="number" value={capital} onChange={e => setCapital(e.target.value)} />
+          </div>
+          <div>
+            <label style={G.label}>Versement mensuel (FCFA)</label>
+            <input style={G.input} type="number" value={versement} onChange={e => setVersement(e.target.value)} />
+          </div>
+          <div>
+            <label style={G.label}>Durée (années)</label>
+            <input style={G.input} type="number" value={duree} onChange={e => setDuree(e.target.value)} />
+          </div>
+          <div>
+            <label style={G.label}>Taux annuel (%)</label>
+            <input style={G.input} type="number" step="0.1" value={taux} onChange={e => setTaux(e.target.value)} />
+          </div>
+        </div>
+        <div style={{ ...G.row, marginTop: 14, gap: 8 }}>
+          {["composes", "simples"].map(m => (
+            <button key={m} onClick={() => setMode(m)} style={{
+              ...G.btn(mode === m ? "var(--gold)" : "var(--surface)"),
+              flex: 1, color: mode === m ? "#0A0F1A" : "var(--text)", fontSize: 12,
+            }}>
+              {m === "composes" ? "📈 Intérêts composés" : "📉 Intérêts simples"}
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 6, textAlign: "center" }}>
+          {mode === "composes"
+            ? "C = P×(1+r)ⁿ + V×12×((1+r)ⁿ-1)/r"
+            : "C = P×(1+r×n) + V×n×12"}
+        </div>
+
+        {/* Résultats */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 16 }}>
+          <div style={{ ...G.card, textAlign: "center", padding: 12, margin: 0 }}>
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>Total versé</div>
+            <div style={{ color: "var(--blue)", fontWeight: 700, fontSize: 14 }}>{fmt(totalVerse)}</div>
+            <div style={{ fontSize: 10, color: "var(--muted)" }}>FCFA</div>
+          </div>
+          <div style={{ ...G.card, textAlign: "center", padding: 12, margin: 0 }}>
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>Gain</div>
+            <div style={{ color: "var(--green)", fontWeight: 700, fontSize: 14 }}>{fmt(gain)}</div>
+            <div style={{ fontSize: 10, color: "var(--muted)" }}>FCFA</div>
+          </div>
+          <div style={{ ...G.card, textAlign: "center", padding: 12, margin: 0, borderColor: "var(--gold)" }}>
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>Capital final</div>
+            <div style={{ color: "var(--gold)", fontWeight: 700, fontSize: 14 }}>{fmt(capitalFinal)}</div>
+            <div style={{ fontSize: 10, color: "var(--muted)" }}>FCFA</div>
+          </div>
+        </div>
+
+        {/* AreaChart */}
+        {projData.length > 1 && (
+          <ResponsiveContainer width="100%" height={200} style={{ marginTop: 16 }}>
+            <AreaChart data={projData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="an" tick={{ fill: "var(--muted)", fontSize: 10 }} />
+              <YAxis tick={{ fill: "var(--muted)", fontSize: 10 }} tickFormatter={v => fmt(v/1000)+"k"} />
+              <Tooltip formatter={v => `${fmt(v)} FCFA`} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} />
+              <Legend />
+              <Area type="monotone" dataKey="Valeur" stroke="var(--gold)" fill="var(--gold)" fillOpacity={0.2} strokeWidth={2} />
+              <Area type="monotone" dataKey="Versé" stroke="var(--blue)" fill="var(--blue)" fillOpacity={0.1} strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Placements recommandés */}
+      <div style={G.card}>
+        <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>🌟 Placements recommandés</h3>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>Filtrés pour profil : <strong style={{ color: "var(--gold)", textTransform: "capitalize" }}>{profilRisque}</strong></div>
+        {placementsFiltrés.map(p => (
+          <div key={p.id} style={{ ...G.card, padding: 14, marginBottom: 10, margin: "0 0 10px" }}>
+            <div style={{ ...G.row, marginBottom: 6 }}>
+              <span style={{ fontSize: 22 }}>{p.icon}</span>
+              <div>
+                <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 14 }}>{p.label}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)" }}>{p.produit}</div>
+              </div>
+              <div style={{ marginLeft: "auto", textAlign: "right" }}>
+                <div style={{ color: "var(--green)", fontWeight: 700, fontSize: 13 }}>{p.rendement}</div>
+                <div style={{ fontSize: 10, color: "var(--muted)" }}>Risque: {"⭐".repeat(p.risk)}</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.description}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stratégie */}
+      <div style={G.card}>
+        <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>📋 Stratégie recommandée</h3>
+        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>Répartition suggérée pour {fmt(solde)} FCFA disponibles :</div>
+        {strategie.map(s => (
+          <div key={s.label} style={{ marginBottom: 10 }}>
+            <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ fontSize: 13, color: "var(--text)" }}>{s.label}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: s.color }}>
+                {s.pct}% — {fmt(solde * s.pct / 100)} FCFA
+              </span>
+            </div>
+            <ProgressBar value={s.pct} max={100} color={s.color} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+// ─── ONGLET PATRIMOINE ───────────────────────────────────────────────────────────
+function TabPatrimoine({ data, setData, mois }) {
+  const [showForm, setShowForm] = useState(false);
+  const [aType, setAType] = useState("urgence");
+  const [aNom, setANom] = useState("");
+  const [aValAchat, setAValAchat] = useState("");
+  const [aValActuelle, setAValActuelle] = useState("");
+  const [updateId, setUpdateId] = useState(null);
+  const [updateVal, setUpdateVal] = useState("");
+
+  const solde = getSolde(data, mois);
+  const totalActifs = data.patrimoine.reduce((a,p)=>a+p.valeurActuelle,0);
+  const totalInitial = data.patrimoine.reduce((a,p)=>a+p.valeurInitiale,0);
+  const plusValue = totalActifs - totalInitial;
+  const epargneObj = data.objectifs.reduce((a,o)=>a+o.epargne,0);
+  const patrimoineNet = totalActifs + epargneObj + solde;
+
+  // Score santé
+  const fondsUrgence = data.patrimoine.filter(p=>p.type==="urgence").reduce((a,p)=>a+p.valeurActuelle,0);
+  const depMois = getPeriode(data,mois).depenses.reduce((a,d)=>a+d.montant,0);
+  const urgenceOk = fondsUrgence >= depMois * 3;
+  const types3 = new Set(data.patrimoine.map(p=>p.type)).size >= 3;
+  const liquid = data.patrimoine.filter(p=>ASSET_TYPES.find(t=>t.id===p.type)?.liquid).reduce((a,p)=>a+p.valeurActuelle,0);
+  const liquidRatio = totalActifs > 0 ? (liquid/totalActifs)*100 : 0;
+  const liquidOk = liquidRatio >= 30 && liquidRatio <= 80;
+  const plusOk = plusValue >= 0;
+  const score = [urgenceOk, types3, liquidOk, plusOk].filter(Boolean).length * 25;
+
+  const criteres = [
+    { label: "Urgence ≥ 3 mois de dépenses", ok: urgenceOk },
+    { label: "3+ types d'actifs différents", ok: types3 },
+    { label: "Liquidité 30-80%", ok: liquidOk },
+    { label: "Plus-value positive", ok: plusOk },
+  ];
+
+  // PieChart répartition
+  const COLORS = ["#C9A84C","#3B82F6","#10B981","#8B5CF6","#EF4444","#F59E0B","#06B6D4","#EC4899","#84CC16","#F97316"];
+  const pieData = ASSET_TYPES.map((t,i) => ({
+    name: `${t.icon} ${t.label}`,
+    value: data.patrimoine.filter(p=>p.type===t.id).reduce((a,p)=>a+p.valeurActuelle,0),
+    color: COLORS[i],
+  })).filter(d=>d.value>0);
+
+  const ajouterActif = () => {
+    const vAchat = parseFloat(aValAchat) || 0;
+    const vActuelle = parseFloat(aValActuelle);
+    if (!aNom.trim() || isNaN(vActuelle) || vActuelle < 0) return;
+    const actif = {
+      id: genId(), type: aType, nom: aNom.trim(),
+      valeurInitiale: vAchat || vActuelle, valeurActuelle: vActuelle,
+      dateAchat: new Date().toISOString().split("T")[0], source: "manuel",
+    };
+    setData({ ...data, patrimoine: [...data.patrimoine, actif] });
+    setANom(""); setAValAchat(""); setAValActuelle(""); setShowForm(false);
+  };
+
+  const mettreAJour = (id) => {
+    const v = parseFloat(updateVal);
+    if (isNaN(v) || v < 0) return;
+    setData({ ...data, patrimoine: data.patrimoine.map(p => p.id === id ? { ...p, valeurActuelle: v } : p) });
+    setUpdateId(null); setUpdateVal("");
+  };
+
+  const supprimerActif = (actif) => {
+    if (actif.source === "manuel") {
+      setData({ ...data, patrimoine: data.patrimoine.filter(p => p.id !== actif.id) });
+    } else {
+      const txs = data.transactions.filter(t => t.patrimoineId === actif.id);
+      let periodes = { ...data.periodes };
+      txs.forEach(tx => {
+        if (!periodes[tx.mois]) periodes[tx.mois] = DEFAULT_PERIODE();
+        periodes[tx.mois] = { ...periodes[tx.mois], allocations: Math.max(0, (periodes[tx.mois].allocations||0) - tx.montant) };
+      });
+      setData({
+        ...data,
+        patrimoine: data.patrimoine.filter(p => p.id !== actif.id),
+        transactions: data.transactions.filter(t => t.patrimoineId !== actif.id),
+        periodes,
+      });
+    }
+  };
+
+  // Jauge SVG score
+  const r = 54, circ = 2 * Math.PI * r;
+  const offset = circ - (score / 100) * circ;
+  const scoreColor = score >= 75 ? "var(--green)" : score >= 50 ? "var(--gold)" : "var(--red)";
+
+  return (
+    <div>
+      {/* Net + sous-totaux */}
+      <div style={{ ...G.card, borderColor: "var(--gold)", textAlign: "center" }}>
+        <div style={{ color: "var(--muted)", fontSize: 12 }}>Patrimoine Net Total</div>
+        <div style={{ color: "var(--gold)", fontSize: 30, fontWeight: 900 }}>{fmt(patrimoineNet)} FCFA</div>
+      </div>
+      <div style={G.grid4}>
+        <KpiCard label="Actifs" value={fmt(totalActifs)} sub="FCFA" icon="💎" />
+        <KpiCard label="Objectifs" value={fmt(epargneObj)} sub="FCFA" icon="🎯" />
+        <KpiCard label="Plus-value" value={fmt(plusValue)} sub="FCFA" icon="📈" color={plusValue>=0?"var(--green)":"var(--red)"} />
+        <KpiCard label="Solde dispo" value={fmt(solde)} sub="FCFA" icon="💰" color="var(--gold)" />
+      </div>
+
+      {/* Score santé */}
+      <div style={{ ...G.card }}>
+        <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>🏥 Score de santé financière</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <svg width={128} height={128} viewBox="0 0 128 128">
+            <circle cx={64} cy={64} r={r} fill="none" stroke="var(--surface)" strokeWidth={10}/>
+            <circle cx={64} cy={64} r={r} fill="none" stroke={scoreColor} strokeWidth={10}
+              strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+              transform="rotate(-90 64 64)" style={{transition:"stroke-dashoffset 1s"}}/>
+            <text x={64} y={68} textAnchor="middle" fontSize={26} fontWeight={900} fill={scoreColor}>{score}</text>
+            <text x={64} y={86} textAnchor="middle" fontSize={12} fill="var(--muted)">/100</text>
+          </svg>
+          <div style={{ flex: 1 }}>
+            {criteres.map(c => (
+              <div key={c.label} style={{ ...G.row, marginBottom: 8 }}>
+                <span style={{ fontSize: 16 }}>{c.ok ? "✅" : "❌"}</span>
+                <span style={{ fontSize: 12, color: c.ok ? "var(--text)" : "var(--muted)" }}>{c.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* PieChart répartition */}
+      {pieData.length > 0 && (
+        <div style={G.card}>
+          <h3 style={{ color: "var(--text)", margin: "0 0 10px" }}>Répartition des actifs</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={75} label={false}>
+                {pieData.map((e,i)=><Cell key={i} fill={e.color}/>)}
+              </Pie>
+              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"var(--card)",border:"1px solid var(--border)"}}/>
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+          {/* Liquid vs illiquid */}
+          <div style={{ ...G.row, justifyContent: "space-between", marginTop: 10 }}>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>💧 Liquide : {fmt(liquid)} FCFA ({liquidRatio.toFixed(0)}%)</span>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>🏔️ Illiquide : {fmt(totalActifs-liquid)} FCFA</span>
+          </div>
+        </div>
+      )}
+
+      {/* Barres par type */}
+      {ASSET_TYPES.map((t,i) => {
+        const val = data.patrimoine.filter(p=>p.type===t.id).reduce((a,p)=>a+p.valeurActuelle,0);
+        if (!val) return null;
+        return (
+          <div key={t.id} style={{ marginBottom: 8 }}>
+            <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 3 }}>
+              <span style={{ fontSize: 12, color: "var(--text)" }}>{t.icon} {t.label}</span>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>{fmt(val)} FCFA</span>
+            </div>
+            <ProgressBar value={val} max={totalActifs} color={COLORS[i]} />
+          </div>
+        );
+      })}
+
+      {/* Bouton ajouter actif */}
+      <button style={{ ...G.btn(), width: "100%", marginTop: 16 }} onClick={() => setShowForm(!showForm)}>
+        + Enregistrer un actif
+      </button>
+
+      {showForm && (
+        <div style={{ ...G.card, marginTop: 10 }}>
+          <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>Nouvel actif (source: manuel)</h3>
+          <label style={G.label}>Type d'actif</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+            {ASSET_TYPES.map(t => (
+              <button key={t.id} onClick={() => setAType(t.id)} style={{
+                background: aType === t.id ? "var(--gold)" : "var(--surface)",
+                border: `1px solid ${aType === t.id ? "var(--gold)" : "var(--border)"}`,
+                borderRadius: 6, padding: "6px 10px", cursor: "pointer",
+                color: aType === t.id ? "#0A0F1A" : "var(--text)", fontSize: 12,
+                fontFamily: "Palatino Linotype, Georgia, serif",
+              }}>{t.icon} {t.label}</button>
+            ))}
+          </div>
+          <label style={G.label}>Nom</label>
+          <input style={{ ...G.input, marginBottom: 10 }} value={aNom} onChange={e => setANom(e.target.value)} placeholder="Ex: Terrain Bingerville, BTC..." />
+          <label style={G.label}>Valeur d'achat (FCFA, optionnel)</label>
+          <input style={{ ...G.input, marginBottom: 10 }} type="number" value={aValAchat} onChange={e => setAValAchat(e.target.value)} placeholder="Laissez vide si inconnue" />
+          <label style={G.label}>Valeur actuelle (FCFA)</label>
+          <input style={{ ...G.input, marginBottom: 14 }} type="number" value={aValActuelle} onChange={e => setAValActuelle(e.target.value)} placeholder="Ex: 5000000" />
+          <div style={{ display: "flex", gap: 10 }}>
+            <button style={{ ...G.btn("var(--surface)"), flex: 1 }} onClick={() => setShowForm(false)}>Annuler</button>
+            <button style={{ ...G.btn(), flex: 2 }} onClick={ajouterActif}>Enregistrer</button>
+          </div>
+        </div>
+      )}
+
+      {/* Liste actifs */}
+      <div style={{ ...G.card, marginTop: 16 }}>
+        <h3 style={{ color: "var(--text)", margin: "0 0 12px" }}>Tous les actifs ({data.patrimoine.length})</h3>
+        {data.patrimoine.length === 0 && <div style={{ color: "var(--muted)", fontSize: 13 }}>Aucun actif enregistré.</div>}
+        {data.patrimoine.map(actif => {
+          const aType = ASSET_TYPES.find(t => t.id === actif.type);
+          const pv = actif.valeurActuelle - actif.valeurInitiale;
+          return (
+            <div key={actif.id} style={{ borderBottom: "1px solid var(--border)", padding: "12px 0" }}>
+              <div style={{ ...G.row, justifyContent: "space-between" }}>
+                <div style={{ ...G.row }}>
+                  <span style={{ fontSize: 20 }}>{aType?.icon || "📦"}</span>
+                  <div>
+                    <div style={{ fontWeight: 600, color: "var(--text)", fontSize: 14 }}>{actif.nom}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                      {aType?.label} · {actif.source === "app" ? "🤖 via app" : "✋ manuel"} · {actif.dateAchat}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontWeight: 700, color: "var(--gold)", fontSize: 14 }}>{fmt(actif.valeurActuelle)} FCFA</div>
+                  <div style={{ fontSize: 11, color: pv >= 0 ? "var(--green)" : "var(--red)" }}>
+                    {pv >= 0 ? "+" : ""}{fmt(pv)} FCFA
+                  </div>
+                </div>
+              </div>
+              <div style={{ ...G.row, marginTop: 8, gap: 6 }}>
+                {updateId === actif.id ? (
+                  <>
+                    <input style={{ ...G.input, flex: 1, padding: "6px 10px", fontSize: 12 }} type="number" value={updateVal} onChange={e => setUpdateVal(e.target.value)} placeholder="Nouvelle valeur" />
+                    <button onClick={() => mettreAJour(actif.id)} style={G.btnSm("var(--green)")}>✓</button>
+                    <button onClick={() => setUpdateId(null)} style={G.btnSm("var(--surface)")}>✗</button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={e => { e.stopPropagation(); setUpdateId(actif.id); setUpdateVal(String(actif.valeurActuelle)); }}
+                      style={G.btnSm("var(--surface)")}>✏️ Mettre à jour</button>
+                    <button onClick={e => { e.stopPropagation(); supprimerActif(actif); }}
+                      style={G.btnSm("var(--red)")}>× Supprimer</button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+// ─── ONGLET FORMATION ────────────────────────────────────────────────────────────
+function TabFormation() {
+  const [selected, setSelected] = useState(null);
+  const [openSection, setOpenSection] = useState(null);
+
+  const niveauColor = { "Débutant": "var(--green)", "Intermédiaire": "var(--blue)", "Avancé": "var(--red)", "Essentiel": "var(--gold)" };
+
+  if (selected) {
+    const module = FORMATION_MODULES.find(m => m.id === selected);
+    return (
+      <div>
+        <button onClick={() => { setSelected(null); setOpenSection(null); }} style={{ ...G.btn("var(--surface)"), marginBottom: 14 }}>
+          ← Retour
+        </button>
+        <div style={{ ...G.card, borderColor: "var(--gold)" }}>
+          <div style={{ ...G.row, marginBottom: 10 }}>
+            <span style={{ fontSize: 32 }}>{module.icon}</span>
+            <div>
+              <h2 style={{ color: "var(--text)", margin: 0, fontSize: 20 }}>{module.titre}</h2>
+              <span style={{ fontSize: 11, background: niveauColor[module.niveau], color: "#fff", borderRadius: 4, padding: "2px 8px" }}>{module.niveau}</span>
+            </div>
+          </div>
+        </div>
+        {module.sections.map((s, i) => (
+          <div key={i} style={{ ...G.card, padding: 0, overflow: "hidden" }}>
+            <div
+              onClick={() => setOpenSection(openSection === i ? null : i)}
+              style={{ padding: 16, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+            >
+              <span style={{ fontWeight: 600, color: "var(--text)", fontSize: 14 }}>{s.titre}</span>
+              <span style={{ color: "var(--muted)" }}>{openSection === i ? "▲" : "▼"}</span>
+            </div>
+            {openSection === i && (
+              <div style={{ padding: "0 16px 16px", color: "var(--muted)", fontSize: 14, lineHeight: 1.7, borderTop: "1px solid var(--border)" }}>
+                {s.contenu}
+              </div>
+            )}
+          </div>
+        ))}
+        <div style={{ ...G.card, background: "var(--surface)" }}>
+          <h3 style={{ color: "var(--gold)", margin: "0 0 10px" }}>📎 Ressources officielles</h3>
+          {[
+            { label: "BRVM — Bourse régionale UEMOA", url: "https://www.brvm.org" },
+            { label: "Djamo — Application financière CI", url: "https://djamo.ci" },
+            { label: "DabaFinance — Investissement Afrique", url: "https://dabafinance.com" },
+            { label: "BCEAO — Banque Centrale UEMOA", url: "https://www.bceao.int" },
+            { label: "AMF-UMOA — Autorité des marchés", url: "https://amf-umoa.org" },
+          ].map(r => (
+            <div key={r.url} style={{ marginBottom: 8 }}>
+              <a href={r.url} target="_blank" rel="noopener noreferrer"
+                style={{ color: "var(--blue)", fontSize: 13, textDecoration: "none" }}>
+                🔗 {r.label}
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ ...G.card, borderColor: "var(--gold)", marginBottom: 16 }}>
+        <h2 style={{ color: "var(--gold)", margin: "0 0 6px" }}>📚 Formation financière</h2>
+        <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>7 modules pour maîtriser vos finances en Côte d'Ivoire.</p>
+      </div>
+      {FORMATION_MODULES.map(module => (
+        <div key={module.id} onClick={() => setSelected(module.id)}
+          style={{ ...G.card, cursor: "pointer", transition: "border-color 0.2s" }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = "var(--gold)"}
+          onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
+        >
+          <div style={{ ...G.row, justifyContent: "space-between" }}>
+            <div style={{ ...G.row }}>
+              <span style={{ fontSize: 28 }}>{module.icon}</span>
+              <div>
+                <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 15 }}>{module.titre}</div>
+                <span style={{ fontSize: 11, background: niveauColor[module.niveau], color: "#fff", borderRadius: 4, padding: "2px 8px" }}>
+                  {module.niveau}
+                </span>
+              </div>
+            </div>
+            <span style={{ color: "var(--muted)", fontSize: 18 }}>›</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── ONGLET PROFIL ───────────────────────────────────────────────────────────────
+function ResetButton({ onReset }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  return (
+    <div style={{ marginTop: 20 }}>
+      {!showConfirm ? (
+        <button onClick={() => setShowConfirm(true)} style={{ ...G.btn("var(--red)"), width: "100%" }}>
+          🗑️ Réinitialiser toutes les données
+        </button>
+      ) : (
+        <div style={{ ...G.card, borderColor: "var(--red)", padding: 16 }}>
+          <div style={{ color: "var(--text)", fontWeight: 700, marginBottom: 10 }}>
+            ⚠️ Cette action est irréversible. Toutes vos données seront effacées.
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={() => { onReset(); setShowConfirm(false); }}
+              style={{ ...G.btn("var(--red)"), flex: 1 }}>Oui, tout effacer</button>
+            <button onClick={() => setShowConfirm(false)}
+              style={{ ...G.btn("var(--surface)"), flex: 1 }}>Annuler</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TabProfil({ data, setData, mois }) {
+  const [editMode, setEditMode] = useState(false);
+  const [nom, setNom] = useState(data.profil.nom);
+  const [revenu, setRevenu] = useState(String(data.profil.revenuMensuel));
+  const [risque, setRisque] = useState(data.profil.profilRisque);
+
+  const sauvegarder = () => {
+    const r = parseFloat(revenu) || data.profil.revenuMensuel;
+    setData({ ...data, profil: { ...data.profil, nom: nom.trim() || data.profil.nom, revenuMensuel: r, profilRisque: risque } });
+    setEditMode(false);
+  };
+
+  const totalInvesti = getTotalInvesti(data);
+  const patrimoineNet = getPatrimoineNet(data, mois);
+  const nbMois = Object.keys(data.periodes).length;
+
+  const onReset = () => {
+    saveData({ ...DEFAULT_STATE, profil: { ...DEFAULT_STATE.profil } });
+    window.location.reload();
+  };
+
+  const stats = [
+    { label: "Revenu mensuel", value: `${fmt(data.profil.revenuMensuel)} FCFA`, icon: "💵" },
+    { label: "Patrimoine net", value: `${fmt(patrimoineNet)} FCFA`, icon: "💎" },
+    { label: "Total investi", value: `${fmt(totalInvesti)} FCFA`, icon: "📈" },
+    { label: "Mois suivis", value: nbMois, icon: "📅" },
+    { label: "Actifs", value: data.patrimoine.length, icon: "🏦" },
+    { label: "Transactions", value: data.transactions.length, icon: "🔄" },
+  ];
+
+  const profilIcons = { prudent: "🛡️", equilibre: "⚖️", dynamique: "🚀" };
+
+  return (
+    <div>
+      <div style={{ ...G.card, textAlign: "center", borderColor: "var(--gold)" }}>
+        <div style={{ fontSize: 48 }}>👤</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", marginTop: 6 }}>{data.profil.nom}</div>
+        <div style={{ color: "var(--gold)", fontSize: 14, marginTop: 4 }}>
+          {profilIcons[data.profil.profilRisque]} Profil {data.profil.profilRisque}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={G.grid2}>
+        {stats.map(s => (
+          <KpiCard key={s.label} label={s.label} value={s.value} icon={s.icon} />
+        ))}
+      </div>
+
+      {/* Édition */}
+      <div style={G.card}>
+        <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 14 }}>
+          <h3 style={{ color: "var(--text)", margin: 0 }}>Modifier le profil</h3>
+          <button onClick={() => setEditMode(!editMode)} style={G.btnSm()}>
+            {editMode ? "Annuler" : "✏️ Modifier"}
+          </button>
+        </div>
+        {editMode ? (
+          <>
+            <label style={G.label}>Prénom</label>
+            <input style={{ ...G.input, marginBottom: 10 }} value={nom} onChange={e => setNom(e.target.value)} />
+            <label style={G.label}>Revenu mensuel (FCFA)</label>
+            <input style={{ ...G.input, marginBottom: 10 }} type="number" value={revenu} onChange={e => setRevenu(e.target.value)} />
+            <label style={G.label}>Profil de risque</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              {[["prudent","🛡️ Prudent"],["equilibre","⚖️ Équilibré"],["dynamique","🚀 Dynamique"]].map(([id,label]) => (
+                <button key={id} onClick={() => setRisque(id)} style={{
+                  ...G.btnSm(risque === id ? "var(--gold)" : "var(--surface)"),
+                  flex: 1, color: risque === id ? "#0A0F1A" : "var(--text)",
+                }}>{label}</button>
+              ))}
+            </div>
+            <button style={{ ...G.btn(), width: "100%" }} onClick={sauvegarder}>💾 Sauvegarder</button>
+          </>
+        ) : (
+          <div>
+            {[
+              ["Prénom", data.profil.nom],
+              ["Revenu mensuel", `${fmt(data.profil.revenuMensuel)} FCFA`],
+              ["Profil investisseur", `${profilIcons[data.profil.profilRisque]} ${data.profil.profilRisque}`],
+            ].map(([label, val]) => (
+              <div key={label} style={{ ...G.row, justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 13, color: "var(--muted)" }}>{label}</span>
+                <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <ResetButton onReset={onReset} />
+    </div>
+  );
+}
+// ─── MODAL CHANGEMENT DE MOIS ────────────────────────────────────────────────────
+function ModalNouveauMois({ moisPrecedent, moisCible, data, onChoix, onAnnuler }) {
+  const prevPeriode = getPeriode(data, moisPrecedent);
+  const soldePrev = getSolde(data, moisPrecedent);
+  const hasRecurrents = prevPeriode.revenus.some(r => r.recurrent) || prevPeriode.depenses.some(d => d.recurrent);
+
+  return (
+    <Modal title={`Nouveau mois : ${moisLabel(moisCible)}`} onClose={onAnnuler}>
+      <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 20 }}>
+        Ce mois n'a pas encore de données. Comment souhaitez-vous commencer ?
+      </p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <button
+          onClick={() => onChoix("recurrents")}
+          style={{ ...G.btn("var(--surface)"), textAlign: "left", padding: 14 }}
+          disabled={!hasRecurrents}
+        >
+          <div style={{ fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>
+            🔄 Reporter les éléments récurrents
+          </div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            Copie les revenus/dépenses récurrents du mois précédent.
+            {!hasRecurrents && " (Aucun élément récurrent disponible)"}
+          </div>
+        </button>
+        <button
+          onClick={() => onChoix("recurrents+solde")}
+          style={{ ...G.btn("var(--surface)"), textAlign: "left", padding: 14 }}
+          disabled={!hasRecurrents}
+        >
+          <div style={{ fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>
+            💰 Reporter récurrents + solde restant
+          </div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            Idem + ajoute un revenu "Report solde {moisLabel(moisPrecedent)}" de {fmt(soldePrev)} FCFA.
+            {!hasRecurrents && " (Aucun récurrent disponible)"}
+          </div>
+        </button>
+        <button
+          onClick={() => onChoix("zero")}
+          style={{ ...G.btn("var(--gold)"), textAlign: "left", padding: 14 }}
+        >
+          <div style={{ fontWeight: 700, color: "#0A0F1A", marginBottom: 4 }}>
+            ✨ Repartir de zéro
+          </div>
+          <div style={{ fontSize: 12, color: "#0A0F1A", opacity: 0.7 }}>
+            Nouvelle période vierge sans données précédentes.
+          </div>
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── APPLICATION PRINCIPALE ──────────────────────────────────────────────────────
+export default function App() {
+  const [data, setDataRaw] = useState(() => loadData());
+  const [theme, setTheme] = useState("dark");
+  const [activeTab, setActiveTab] = useState("accueil");
+  const [pendingMois, setPendingMois] = useState(null);
+
+  // Appliquer le thème initial
+  useEffect(() => { applyTheme(theme); }, [theme]);
+
+  // Sauvegarder à chaque changement
+  const setData = useCallback((newData) => {
+    setDataRaw(newData);
+    saveData(newData);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    applyTheme(next);
+  };
+
+  const mois = data.moisActif || todayMois();
+
+  // Navigation mois
+  const naviguerMois = (newMois) => {
+    if (data.periodes[newMois]) {
+      setData({ ...data, moisActif: newMois });
+    } else {
+      setPendingMois(newMois);
+    }
+  };
+
+  const handleChoixMois = (choix) => {
+    const prevMois = mois;
+    const prevPeriode = getPeriode(data, prevMois);
+    let newPeriode = DEFAULT_PERIODE();
+
+    if (choix === "recurrents" || choix === "recurrents+solde") {
+      const revenus = prevPeriode.revenus
+        .filter(r => r.recurrent)
+        .map(r => ({ ...r, id: genId() }));
+      const depenses = prevPeriode.depenses
+        .filter(d => d.recurrent)
+        .map(d => ({ ...d, id: genId() }));
+      newPeriode = { ...newPeriode, revenus, depenses };
+
+      if (choix === "recurrents+solde") {
+        const soldePrev = getSolde(data, prevMois);
+        const reportRevenu = { id: genId(), label: `Report solde ${moisLabel(prevMois)}`, montant: soldePrev, recurrent: false };
+        newPeriode = { ...newPeriode, revenus: [reportRevenu, ...newPeriode.revenus] };
+      }
+    }
+
+    setData({
+      ...data,
+      moisActif: pendingMois,
+      periodes: { ...data.periodes, [pendingMois]: newPeriode },
+    });
+    setPendingMois(null);
+  };
+
+  // Onboarding
+  if (!data.profil.configured) {
+    return (
+      <>
+        <style>{`
+          @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+          * { box-sizing: border-box; }
+          body { margin: 0; font-family: 'Palatino Linotype', Georgia, serif; background: var(--bg); color: var(--text); }
+          :root { ${Object.entries(THEMES.dark).map(([k,v])=>`${k}:${v}`).join(';')} }
+        `}</style>
+        <Onboarding onDone={(profil) => setData({ ...data, profil })} />
+      </>
+    );
+  }
+
+  const TABS = [
+    { id: "accueil",   label: "🏠 Accueil"   },
+    { id: "budget",    label: "💵 Budget"    },
+    { id: "graphiques",label: "📊 Graphiques" },
+    { id: "objectifs", label: "🎯 Objectifs" },
+    { id: "investir",  label: "💸 Investir"  },
+    { id: "conseil",   label: "🌱 Conseil"   },
+    { id: "patrimoine",label: "💎 Patrimoine" },
+    { id: "formation", label: "📚 Formation" },
+    { id: "profil",    label: "👤 Profil"    },
+  ];
+
+  const solde = getSolde(data, mois);
+
+  return (
+    <>
+      <style>{`
+        @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Palatino Linotype', Georgia, serif; background: var(--bg); color: var(--text); }
+        :root { ${Object.entries(THEMES.dark).map(([k,v])=>`${k}:${v}`).join(';')} }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+        a { color: var(--blue); }
+      `}</style>
+
+      {/* Header sticky */}
+      <header style={{
+        position: "sticky", top: 0, zIndex: 100,
+        background: "var(--card)", borderBottom: "1px solid var(--border)",
+        padding: "10px 16px", display: "flex", alignItems: "center", gap: 10,
+      }}>
+        <div style={{ fontWeight: 900, color: "var(--gold)", fontSize: 16, whiteSpace: "nowrap" }}>💰 Mon Patrimoine</div>
+        <div style={{ flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 11, color: "var(--muted)" }}>Solde disponible</div>
+          <div style={{ color: solde >= 0 ? "var(--gold)" : "var(--red)", fontWeight: 800, fontSize: 15 }}>{fmt(solde)} FCFA</div>
+        </div>
+        {/* Sélecteur mois */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button onClick={() => naviguerMois(prevMois(mois))} style={{ background: "var(--surface)", border: "none", borderRadius: 6, width: 28, height: 28, cursor: "pointer", color: "var(--text)", fontSize: 14 }}>‹</button>
+          <span style={{ fontSize: 12, color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600, minWidth: 60, textAlign: "center" }}>{moisLabel(mois)}</span>
+          <button onClick={() => naviguerMois(nextMois(mois))} style={{ background: "var(--surface)", border: "none", borderRadius: 6, width: 28, height: 28, cursor: "pointer", color: "var(--text)", fontSize: 14 }}>›</button>
+        </div>
+        <button onClick={toggleTheme} style={{ background: "var(--surface)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 16 }}>
+          {theme === "dark" ? "☀️" : "🌙"}
+        </button>
+      </header>
+
+      {/* Navigation sticky */}
+      <nav style={{
+        position: "sticky", top: 57, zIndex: 99,
+        background: "var(--card)", borderBottom: "1px solid var(--border)",
+        display: "flex", overflowX: "auto", padding: "0 8px",
+        scrollbarWidth: "none", gap: 2,
+      }}>
+        <style>{`nav::-webkit-scrollbar { display: none; }`}</style>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+            background: "none", border: "none",
+            borderBottom: activeTab === t.id ? "2px solid var(--gold)" : "2px solid transparent",
+            padding: "12px 14px", cursor: "pointer", whiteSpace: "nowrap",
+            color: activeTab === t.id ? "var(--gold)" : "var(--muted)",
+            fontWeight: activeTab === t.id ? 700 : 400,
+            fontSize: 13, fontFamily: "Palatino Linotype, Georgia, serif",
+            transition: "color 0.2s",
+          }}>{t.label}</button>
+        ))}
+      </nav>
+
+      {/* Contenu */}
+      <main style={{ padding: "16px", maxWidth: 800, margin: "0 auto", paddingBottom: 40 }}>
+        {activeTab === "accueil"    && <TabAccueil    data={data} mois={mois} />}
+        {activeTab === "budget"     && <TabBudget     data={data} setData={setData} mois={mois} />}
+        {activeTab === "graphiques" && <TabGraphiques data={data} mois={mois} />}
+        {activeTab === "objectifs"  && <TabObjectifs  data={data} setData={setData} mois={mois} />}
+        {activeTab === "investir"   && <TabInvestir   data={data} setData={setData} mois={mois} />}
+        {activeTab === "conseil"    && <TabConseil    data={data} mois={mois} />}
+        {activeTab === "patrimoine" && <TabPatrimoine data={data} setData={setData} mois={mois} />}
+        {activeTab === "formation"  && <TabFormation  />}
+        {activeTab === "profil"     && <TabProfil     data={data} setData={setData} mois={mois} />}
+      </main>
+
+      {/* Modal nouveau mois */}
+      {pendingMois && (
+        <ModalNouveauMois
+          moisPrecedent={mois}
+          moisCible={pendingMois}
+          data={data}
+          onChoix={handleChoixMois}
+          onAnnuler={() => setPendingMois(null)}
+        />
+      )}
+    </>
+  );
+}
