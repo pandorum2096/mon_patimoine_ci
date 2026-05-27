@@ -25,6 +25,33 @@
     input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
     a{color:var(--blue)}
     #root{min-height:100vh}
+
+    /* ─── RESPONSIVE MOBILE ─────────────────────────────────── */
+    /* Empêche le zoom auto sur les inputs iOS */
+    input, select, textarea { font-size: 16px !important; }
+    @media (max-width: 640px) {
+      /* Taille de police globale */
+      body { font-size: 14px; }
+      /* Inputs visuellement plus petits malgré font-size:16px pour iOS */
+      input, select, textarea {
+        padding: 9px 10px !important;
+      }
+      /* Bouton de suppression toujours visible sur tactile */
+      .rw .dl { opacity: 1 !important; }
+      /* Scrollbar cachée sur mobile */
+      ::-webkit-scrollbar { display: none; }
+      /* Charts — hauteur réduite */
+      .chart-sm { height: 160px !important; }
+      /* Modales — bottom-sheet sur mobile */
+      .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+      .modal-box {
+        border-radius: 20px 20px 0 0 !important;
+        max-height: 92vh !important;
+        padding: 20px 16px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -337,6 +364,19 @@ function getPatrimoineNet(data, moisActif) {
   return actifs + epargneObj + solde;
 }
 
+// ─── RESPONSIVE ─────────────────────────────────────────────────────────────────
+const MobileContext = React.createContext(false);
+function useMobile() { return React.useContext(MobileContext); }
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
+  return isMobile;
+}
+
 // ─── THÈME ──────────────────────────────────────────────────────────────────────
 const THEMES = {
   dark: {
@@ -413,12 +453,13 @@ function ProgressBar({ value, max, color = "var(--gold)", height = 8 }) {
 }
 
 function KpiCard({ label, value, sub, color = "var(--gold)", icon }) {
+  const isMobile = useMobile();
   return (
-    <div style={{ ...G.card, textAlign: "center", padding: 16 }}>
-      {icon && <div style={{ fontSize: 24, marginBottom: 6 }}>{icon}</div>}
-      <div style={{ color: "var(--muted)", fontSize: 12, marginBottom: 4 }}>{label}</div>
-      <div style={{ color, fontSize: 20, fontWeight: 800 }}>{value}</div>
-      {sub && <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>{sub}</div>}
+    <div style={{ ...G.card, textAlign: "center", padding: isMobile ? 10 : 16 }}>
+      {icon && <div style={{ fontSize: isMobile ? 18 : 24, marginBottom: isMobile ? 2 : 6 }}>{icon}</div>}
+      <div style={{ color: "var(--muted)", fontSize: isMobile ? 10 : 12, marginBottom: 2 }}>{label}</div>
+      <div style={{ color, fontSize: isMobile ? 14 : 20, fontWeight: 800, lineHeight: 1.2 }}>{value}</div>
+      {sub && <div style={{ color: "var(--muted)", fontSize: isMobile ? 9 : 11, marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
@@ -438,21 +479,34 @@ function Alert({ type = "warn", children }) {
 }
 
 function Modal({ title, children, onClose }) {
+  const isMobile = useMobile();
   return (
-    <div style={{
+    <div className="modal-overlay" style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      zIndex: 1000, padding: 20,
+      display: "flex",
+      alignItems: isMobile ? "flex-end" : "center",
+      justifyContent: "center",
+      zIndex: 1000,
+      padding: isMobile ? 0 : 20,
     }}>
-      <div style={{
-        background: "var(--card)", borderRadius: 16, padding: 28,
-        maxWidth: 480, width: "100%", border: "1px solid var(--border)",
-        maxHeight: "80vh", overflowY: "auto",
+      <div className="modal-box" style={{
+        background: "var(--card)",
+        borderRadius: isMobile ? "20px 20px 0 0" : 16,
+        padding: isMobile ? "20px 16px" : 28,
+        maxWidth: isMobile ? "100%" : 480,
+        width: "100%",
+        border: "1px solid var(--border)",
+        maxHeight: isMobile ? "92vh" : "80vh",
+        overflowY: "auto",
       }}>
-        <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 20 }}>
-          <h3 style={{ color: "var(--text)", margin: 0, fontSize: 18 }}>{title}</h3>
+        {/* Poignée visuelle sur mobile */}
+        {isMobile && (
+          <div style={{ width: 40, height: 4, background: "var(--border)", borderRadius: 99, margin: "0 auto 16px" }} />
+        )}
+        <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 16 }}>
+          <h3 style={{ color: "var(--text)", margin: 0, fontSize: isMobile ? 16 : 18 }}>{title}</h3>
           {onClose && (
-            <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 20, cursor: "pointer" }}>×</button>
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
           )}
         </div>
         {children}
@@ -500,11 +554,11 @@ function AuthScreen({ onAuth }) {
   };
 
   const s = {
-    wrap: { minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"Palatino Linotype, Georgia, serif" },
-    box: { background:"var(--card)", borderRadius:20, padding:36, maxWidth:420, width:"100%", border:"1px solid var(--border)" },
-    title: { color:"var(--gold)", fontSize:28, fontWeight:900, marginBottom:6, textAlign:"center" },
-    sub: { color:"var(--muted)", fontSize:13, marginBottom:24, textAlign:"center" },
-    tabs: { display:"flex", gap:8, marginBottom:24 },
+    wrap: { minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center", justifyContent:"center", padding:"16px 12px", fontFamily:"Palatino Linotype, Georgia, serif" },
+    box: { background:"var(--card)", borderRadius:20, padding:"28px 20px", maxWidth:420, width:"100%", border:"1px solid var(--border)" },
+    title: { color:"var(--gold)", fontSize:24, fontWeight:900, marginBottom:6, textAlign:"center" },
+    sub: { color:"var(--muted)", fontSize:12, marginBottom:20, textAlign:"center" },
+    tabs: { display:"flex", gap:8, marginBottom:20 },
   };
 
   return (
@@ -669,6 +723,7 @@ function Onboarding({ onDone }) {
 }
 // ─── ONGLET ACCUEIL ─────────────────────────────────────────────────────────────
 function TabAccueil({ data, mois }) {
+  const isMobile = useMobile();
   const periode = getPeriode(data, mois);
   const revenus = periode.revenus.reduce((a, r) => a + r.montant, 0);
   const depenses = periode.depenses.reduce((a, d) => a + d.montant, 0);
@@ -694,9 +749,9 @@ function TabAccueil({ data, mois }) {
     <div>
       {/* Patrimoine net */}
       <div style={{ ...G.card, textAlign: "center", borderColor: "var(--gold)", background: "linear-gradient(135deg, var(--card) 0%, var(--surface) 100%)" }}>
-        <div style={{ color: "var(--muted)", fontSize: 13 }}>Patrimoine Net Total</div>
-        <div style={{ color: "var(--gold)", fontSize: 34, fontWeight: 900 }}>{fmt(patrimoineNet)} FCFA</div>
-        <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Actifs + Objectifs + Solde disponible</div>
+        <div style={{ color: "var(--muted)", fontSize: isMobile ? 11 : 13 }}>Patrimoine Net Total</div>
+        <div style={{ color: "var(--gold)", fontSize: isMobile ? 24 : 34, fontWeight: 900, lineHeight: 1.2 }}>{fmt(patrimoineNet)} FCFA</div>
+        <div style={{ color: "var(--muted)", fontSize: isMobile ? 10 : 12, marginTop: 4 }}>Actifs + Objectifs + Solde disponible</div>
       </div>
 
       {/* Alertes */}
@@ -704,8 +759,8 @@ function TabAccueil({ data, mois }) {
       {pctBesoins > 50 && revenus > 0 && <Alert type="warn">⚠️ Vos besoins dépassent 50% de vos revenus ({pctBesoins.toFixed(0)}%).</Alert>}
       {pctEpargne >= 20 && revenus > 0 && <Alert type="success">🎉 Bravo ! Vous épargnez {pctEpargne.toFixed(0)}% de vos revenus ce mois.</Alert>}
 
-      {/* 4 KPI */}
-      <div style={G.grid4}>
+      {/* 4 KPI — grille 4 colonnes desktop, 2 colonnes mobile */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 8 : 12 }}>
         <KpiCard label="Revenus" value={`${fmt(revenus)}`} sub="FCFA" icon="💵" color="var(--green)" />
         <KpiCard label="Dépenses" value={`${fmt(depenses)}`} sub="FCFA" icon="💸" color="var(--red)" />
         <KpiCard label="Investi" value={`${fmt(investiMois)}`} sub="ce mois" icon="📈" color="var(--blue)" />
@@ -766,6 +821,7 @@ function TabAccueil({ data, mois }) {
 
 // ─── ONGLET BUDGET ──────────────────────────────────────────────────────────────
 function TabBudget({ data, setData, mois }) {
+  const isMobile = useMobile();
   const [tab, setTab] = useState("depenses");
   const [filtreCat, setFiltreCat] = useState(null);
   const [hover, setHover] = useState(null);
@@ -872,7 +928,7 @@ function TabBudget({ data, setData, mois }) {
             background: "var(--red)", border: "none", borderRadius: "50%",
             width: 22, height: 22, color: "#fff", cursor: "pointer", fontSize: 12,
             display: "flex", alignItems: "center", justifyContent: "center",
-            opacity: isHovered ? 1 : 0, transition: "opacity 0.2s", padding: 0, marginLeft: 6,
+            opacity: (isHovered || isMobile) ? 1 : 0, transition: "opacity 0.2s", padding: 0, marginLeft: 6,
           }}
         >×</button>
       </div>
@@ -1000,6 +1056,7 @@ function TabBudget({ data, setData, mois }) {
 }
 // ─── ONGLET GRAPHIQUES ──────────────────────────────────────────────────────────
 function TabGraphiques({ data, mois }) {
+  const isMobile = useMobile();
   const periode = getPeriode(data, mois);
   const revenus = periode.revenus.reduce((a,r)=>a+r.montant,0);
   const depenses = periode.depenses.reduce((a,d)=>a+d.montant,0);
@@ -1049,8 +1106,8 @@ function TabGraphiques({ data, mois }) {
 
   return (
     <div>
-      {/* 3 KPI */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+      {/* 3 KPI — grille 3 cols desktop, 1 col mobile */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 8 : 12 }}>
         <KpiCard label="Taux épargne" value={`${tauxEpargne.toFixed(1)}%`} icon="💰" color={tauxEpargne>=20?"var(--green)":"var(--red)"} />
         <KpiCard label="Dépense/jour" value={`${fmt(depJour)}`} sub="FCFA" icon="📅" />
         <KpiCard label="Autonomie" value={`${Math.round(autonomie)} j`} icon="🗓️" color={autonomie>=30?"var(--green)":"var(--red)"} />
@@ -1082,9 +1139,9 @@ function TabGraphiques({ data, mois }) {
       {pieData.length > 0 && (
         <div style={G.card}>
           <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>Répartition budget</h3>
-          <ResponsiveContainer width="100%" height={180}>
+          <ResponsiveContainer width="100%" height={isMobile ? 150 : 180}>
             <PieChart>
-              <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={70} label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+              <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={isMobile ? 55 : 70} label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
                 {pieData.map((e,i)=><Cell key={i} fill={e.color}/>)}
               </Pie>
               <Tooltip formatter={v=>`${fmt(v)} FCFA`} />
@@ -1097,13 +1154,13 @@ function TabGraphiques({ data, mois }) {
       {multiData.length > 1 && (
         <div style={G.card}>
           <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>📈 Évolution multi-mois</h3>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={isMobile ? 160 : 220}>
             <LineChart data={multiData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="mois" tick={{fill:"var(--muted)",fontSize:11}} />
-              <YAxis tick={{fill:"var(--muted)",fontSize:11}} tickFormatter={v=>fmt(v/1000)+"k"} />
+              <XAxis dataKey="mois" tick={{fill:"var(--muted)",fontSize:isMobile?9:11}} />
+              <YAxis tick={{fill:"var(--muted)",fontSize:isMobile?9:11}} tickFormatter={v=>fmt(v/1000)+"k"} width={isMobile?38:50} />
               <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"var(--card)",border:"1px solid var(--border)"}} />
-              <Legend />
+              <Legend wrapperStyle={{fontSize: isMobile ? 10 : 12}} />
               <Line type="monotone" dataKey="Revenus" stroke="var(--green)" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Dépenses" stroke="var(--red)" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Solde" stroke="var(--gold)" strokeWidth={2} dot={false} />
@@ -1116,7 +1173,7 @@ function TabGraphiques({ data, mois }) {
       {multiData.length > 0 && (
         <div style={G.card}>
           <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>📊 Revenus vs Dépenses</h3>
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={isMobile ? 150 : 200}>
             <BarChart data={multiData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="mois" tick={{fill:"var(--muted)",fontSize:11}} />
@@ -1134,9 +1191,9 @@ function TabGraphiques({ data, mois }) {
       {catData.length > 0 && (
         <div style={G.card}>
           <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>🍕 Dépenses par catégorie</h3>
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={isMobile ? 160 : 200}>
             <PieChart>
-              <Pie data={catData} dataKey="value" cx="50%" cy="50%" outerRadius={75} label={false}>
+              <Pie data={catData} dataKey="value" cx="50%" cy="50%" outerRadius={isMobile ? 55 : 75} label={false}>
                 {catData.map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
               </Pie>
               <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"var(--card)",border:"1px solid var(--border)"}} />
@@ -1173,6 +1230,7 @@ function TabGraphiques({ data, mois }) {
 
 // ─── ONGLET OBJECTIFS ────────────────────────────────────────────────────────────
 function TabObjectifs({ data, setData, mois }) {
+  const isMobile = useMobile();
   const [showForm, setShowForm] = useState(false);
   const [nom, setNom] = useState("");
   const [cible, setCible] = useState("");
@@ -1339,6 +1397,7 @@ function TabObjectifs({ data, setData, mois }) {
 }
 // ─── ONGLET INVESTIR ─────────────────────────────────────────────────────────────
 function TabInvestir({ data, setData, mois }) {
+  const isMobile = useMobile();
   const [expanded, setExpanded] = useState(null);
   const [montants, setMontants] = useState({});
   const [noms, setNoms] = useState({});
@@ -1430,14 +1489,14 @@ function TabInvestir({ data, setData, mois }) {
     <div>
       {/* Banner */}
       <div style={{ ...G.card, borderColor: "var(--gold)" }}>
-        <div style={G.grid2}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? 8 : 12 }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ color: "var(--muted)", fontSize: 12 }}>Solde disponible</div>
-            <div style={{ color: "var(--gold)", fontSize: 22, fontWeight: 800 }}>{fmt(solde)} FCFA</div>
+            <div style={{ color: "var(--muted)", fontSize: isMobile ? 10 : 12 }}>Solde disponible</div>
+            <div style={{ color: "var(--gold)", fontSize: isMobile ? 16 : 22, fontWeight: 800 }}>{fmt(solde)} FCFA</div>
           </div>
           <div style={{ textAlign: "center" }}>
-            <div style={{ color: "var(--muted)", fontSize: 12 }}>Total investi</div>
-            <div style={{ color: "var(--blue)", fontSize: 22, fontWeight: 800 }}>{fmt(totalInvesti)} FCFA</div>
+            <div style={{ color: "var(--muted)", fontSize: isMobile ? 10 : 12 }}>Total investi</div>
+            <div style={{ color: "var(--blue)", fontSize: isMobile ? 16 : 22, fontWeight: 800 }}>{fmt(totalInvesti)} FCFA</div>
           </div>
         </div>
       </div>
@@ -1546,6 +1605,7 @@ function TabInvestir({ data, setData, mois }) {
 }
 // ─── ONGLET CONSEIL ──────────────────────────────────────────────────────────────
 function TabConseil({ data, mois }) {
+  const isMobile = useMobile();
   const solde = getSolde(data, mois);
   const { profilRisque } = data.profil;
 
@@ -1655,7 +1715,7 @@ function TabConseil({ data, mois }) {
         </div>
 
         {/* Résultats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginTop: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 8 : 10, marginTop: 16 }}>
           <div style={{ ...G.card, textAlign: "center", padding: 12, margin: 0 }}>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>Total versé</div>
             <div style={{ color: "var(--blue)", fontWeight: 700, fontSize: 14 }}>{fmt(totalVerse)}</div>
@@ -1675,7 +1735,7 @@ function TabConseil({ data, mois }) {
 
         {/* AreaChart */}
         {projData.length > 1 && (
-          <ResponsiveContainer width="100%" height={200} style={{ marginTop: 16 }}>
+          <ResponsiveContainer width="100%" height={isMobile ? 150 : 200} style={{ marginTop: 16 }}>
             <AreaChart data={projData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="an" tick={{ fill: "var(--muted)", fontSize: 10 }} />
@@ -1732,6 +1792,7 @@ function TabConseil({ data, mois }) {
 }
 // ─── ONGLET PATRIMOINE ───────────────────────────────────────────────────────────
 function TabPatrimoine({ data, setData, mois }) {
+  const isMobile = useMobile();
   const [showForm, setShowForm] = useState(false);
   const [aType, setAType] = useState("urgence");
   const [aNom, setANom] = useState("");
@@ -1821,10 +1882,10 @@ function TabPatrimoine({ data, setData, mois }) {
     <div>
       {/* Net + sous-totaux */}
       <div style={{ ...G.card, borderColor: "var(--gold)", textAlign: "center" }}>
-        <div style={{ color: "var(--muted)", fontSize: 12 }}>Patrimoine Net Total</div>
-        <div style={{ color: "var(--gold)", fontSize: 30, fontWeight: 900 }}>{fmt(patrimoineNet)} FCFA</div>
+        <div style={{ color: "var(--muted)", fontSize: isMobile ? 11 : 12 }}>Patrimoine Net Total</div>
+        <div style={{ color: "var(--gold)", fontSize: isMobile ? 22 : 30, fontWeight: 900, lineHeight: 1.2 }}>{fmt(patrimoineNet)} FCFA</div>
       </div>
-      <div style={G.grid4}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 8 : 12 }}>
         <KpiCard label="Actifs" value={fmt(totalActifs)} sub="FCFA" icon="💎" />
         <KpiCard label="Objectifs" value={fmt(epargneObj)} sub="FCFA" icon="🎯" />
         <KpiCard label="Plus-value" value={fmt(plusValue)} sub="FCFA" icon="📈" color={plusValue>=0?"var(--green)":"var(--red)"} />
@@ -2089,6 +2150,7 @@ function ResetButton({ onReset }) {
 }
 
 function TabProfil({ data, setData, mois }) {
+  const isMobile = useMobile();
   const [editMode, setEditMode] = useState(false);
   const [nom, setNom] = useState(data.profil.nom);
   const [revenu, setRevenu] = useState(String(data.profil.revenuMensuel));
@@ -2130,8 +2192,8 @@ function TabProfil({ data, setData, mois }) {
         </div>
       </div>
 
-      {/* Stats */}
-      <div style={G.grid2}>
+      {/* Stats — 3 cols desktop, 2 cols mobile */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: isMobile ? 8 : 12 }}>
         {stats.map(s => (
           <KpiCard key={s.label} label={s.label} value={s.value} icon={s.icon} />
         ))}
@@ -2238,6 +2300,7 @@ function ModalNouveauMois({ moisPrecedent, moisCible, data, onChoix, onAnnuler }
 
 // ─── APPLICATION PRINCIPALE ──────────────────────────────────────────────────────
 function App() {
+  const isMobile = useIsMobile();
   const [data, setDataRaw] = useState(() => loadData());
   const [appLoaded, setAppLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // null|"saving"|"ok"|"error"
@@ -2408,6 +2471,7 @@ function App() {
   const solde = getSolde(data, mois);
 
   return (
+    <MobileContext.Provider value={isMobile}>
     <>
       <style>{`
         @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
@@ -2419,59 +2483,83 @@ function App() {
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
         a { color: var(--blue); }
+        /* Mobile touch targets */
+        @media (max-width: 640px) {
+          button { min-height: 36px; }
+          .rw .dl { opacity: 1 !important; }
+          nav::-webkit-scrollbar { display: none; }
+        }
       `}</style>
 
-      {/* Header sticky */}
+      {/* Header sticky — 1 ligne desktop, 2 lignes mobile */}
       <header style={{
         position: "sticky", top: 0, zIndex: 100,
         background: "var(--card)", borderBottom: "1px solid var(--border)",
-        padding: "10px 16px", display: "flex", alignItems: "center", gap: 10,
+        padding: isMobile ? "8px 12px" : "10px 16px",
+        display: "flex", flexWrap: isMobile ? "wrap" : "nowrap",
+        alignItems: "center", gap: isMobile ? 4 : 10,
       }}>
-        <div style={{ fontWeight: 900, color: "var(--gold)", fontSize: 16, whiteSpace: "nowrap" }}>💰 Mon Patrimoine</div>
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <div style={{ fontSize: 11, color: "var(--muted)" }}>Solde disponible</div>
-          <div style={{ color: solde >= 0 ? "var(--gold)" : "var(--red)", fontWeight: 800, fontSize: 15 }}>{fmt(solde)} FCFA</div>
-          {saveStatus === "saving" && <div style={{ fontSize: 10, color: "var(--muted)" }}>⏳ sync...</div>}
-          {saveStatus === "ok"     && <div style={{ fontSize: 10, color: "var(--green)" }}>✓ sauvegardé</div>}
-          {saveStatus === "error"  && <div style={{ fontSize: 10, color: "var(--red)" }}>✗ erreur sync</div>}
+        {/* Logo */}
+        <div style={{ fontWeight: 900, color: "var(--gold)", fontSize: isMobile ? 13 : 16, whiteSpace: "nowrap" }}>
+          💰 {isMobile ? "Patrimoine" : "Mon Patrimoine"}
         </div>
-        {/* Sélecteur mois */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <button onClick={() => naviguerMois(prevMois(mois))} style={{ background: "var(--surface)", border: "none", borderRadius: 6, width: 28, height: 28, cursor: "pointer", color: "var(--text)", fontSize: 14 }}>‹</button>
-          <span style={{ fontSize: 12, color: "var(--text)", whiteSpace: "nowrap", fontWeight: 600, minWidth: 60, textAlign: "center" }}>{moisLabel(mois)}</span>
-          <button onClick={() => naviguerMois(nextMois(mois))} style={{ background: "var(--surface)", border: "none", borderRadius: 6, width: 28, height: 28, cursor: "pointer", color: "var(--text)", fontSize: 14 }}>›</button>
+
+        {/* Solde — flex:1 pour remplir l'espace */}
+        <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
+          <div style={{ fontSize: isMobile ? 9 : 11, color: "var(--muted)" }}>Solde disponible</div>
+          <div style={{ color: solde >= 0 ? "var(--gold)" : "var(--red)", fontWeight: 800, fontSize: isMobile ? 13 : 15, whiteSpace: "nowrap" }}>{fmt(solde)} FCFA</div>
+          {saveStatus === "saving" && <div style={{ fontSize: 9, color: "var(--muted)" }}>⏳ sync…</div>}
+          {saveStatus === "ok"     && <div style={{ fontSize: 9, color: "var(--green)" }}>✓ sauvegardé</div>}
+          {saveStatus === "error"  && <div style={{ fontSize: 9, color: "var(--red)" }}>✗ erreur sync</div>}
         </div>
-        <button onClick={toggleTheme} style={{ background: "var(--surface)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 16 }}>
-          {theme === "dark" ? "☀️" : "🌙"}
-        </button>
-        <button onClick={handleLogout} title="Déconnexion" style={{ background: "var(--surface)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 14, color: "var(--muted)" }}>
-          ⏻
-        </button>
+
+        {/* Boutons droite — logout toujours visible */}
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <button onClick={toggleTheme} style={{ background: "var(--surface)", border: "none", borderRadius: 8, padding: isMobile ? "5px 8px" : "6px 10px", cursor: "pointer", fontSize: isMobile ? 14 : 16 }}>
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
+          <button onClick={handleLogout} title="Déconnexion" style={{ background: "var(--surface)", border: "none", borderRadius: 8, padding: isMobile ? "5px 8px" : "6px 10px", cursor: "pointer", fontSize: isMobile ? 13 : 14, color: "var(--muted)" }}>
+            ⏻
+          </button>
+        </div>
+
+        {/* Sélecteur mois — sur 2e ligne sur mobile (order:3 + width:100%) */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          ...(isMobile && { order: 3, width: "100%", paddingTop: 4 }),
+        }}>
+          <button onClick={() => naviguerMois(prevMois(mois))} style={{ background: "var(--surface)", border: "none", borderRadius: 6, width: isMobile ? 32 : 28, height: isMobile ? 32 : 28, cursor: "pointer", color: "var(--text)", fontSize: 16 }}>‹</button>
+          <span style={{ fontSize: isMobile ? 13 : 12, color: "var(--text)", whiteSpace: "nowrap", fontWeight: 700, minWidth: 70, textAlign: "center" }}>{moisLabel(mois)}</span>
+          <button onClick={() => naviguerMois(nextMois(mois))} style={{ background: "var(--surface)", border: "none", borderRadius: 6, width: isMobile ? 32 : 28, height: isMobile ? 32 : 28, cursor: "pointer", color: "var(--text)", fontSize: 16 }}>›</button>
+        </div>
       </header>
 
-      {/* Navigation sticky */}
+      {/* Navigation sticky — position ajustée selon hauteur header mobile */}
       <nav style={{
-        position: "sticky", top: 57, zIndex: 99,
+        position: "sticky", top: isMobile ? 76 : 57, zIndex: 99,
         background: "var(--card)", borderBottom: "1px solid var(--border)",
-        display: "flex", overflowX: "auto", padding: "0 8px",
-        scrollbarWidth: "none", gap: 2,
+        display: "flex", overflowX: "auto", padding: "0 4px",
+        scrollbarWidth: "none", gap: 0,
       }}>
         <style>{`nav::-webkit-scrollbar { display: none; }`}</style>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
             background: "none", border: "none",
             borderBottom: activeTab === t.id ? "2px solid var(--gold)" : "2px solid transparent",
-            padding: "12px 14px", cursor: "pointer", whiteSpace: "nowrap",
+            padding: isMobile ? "10px 10px" : "12px 14px",
+            cursor: "pointer", whiteSpace: "nowrap",
             color: activeTab === t.id ? "var(--gold)" : "var(--muted)",
             fontWeight: activeTab === t.id ? 700 : 400,
-            fontSize: 13, fontFamily: "Palatino Linotype, Georgia, serif",
+            fontSize: isMobile ? 12 : 13,
+            fontFamily: "Palatino Linotype, Georgia, serif",
             transition: "color 0.2s",
+            touchAction: "manipulation",
           }}>{t.label}</button>
         ))}
       </nav>
 
       {/* Contenu */}
-      <main style={{ padding: "16px", maxWidth: 800, margin: "0 auto", paddingBottom: 40 }}>
+      <main style={{ padding: isMobile ? "10px 8px" : "16px", maxWidth: 800, margin: "0 auto", paddingBottom: 60 }}>
         {activeTab === "accueil"    && <TabAccueil    data={data} mois={mois} />}
         {activeTab === "budget"     && <TabBudget     data={data} setData={setData} mois={mois} />}
         {activeTab === "graphiques" && <TabGraphiques data={data} mois={mois} />}
@@ -2494,6 +2582,7 @@ function App() {
         />
       )}
     </>
+    </MobileContext.Provider>
   );
 }
 
