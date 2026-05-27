@@ -13,19 +13,24 @@ import bcrypt
 import jwt
 
 # Charger .env automatiquement (développement local)
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_ENV_PATH = os.path.join(_BASE_DIR, ".env")
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(dotenv_path=_ENV_PATH, override=True)
+    print(f"✅ .env chargé depuis : {_ENV_PATH}")
 except ImportError:
     # Fallback manuel si python-dotenv pas installé
-    _env = os.path.join(os.path.dirname(__file__), ".env")
-    if os.path.exists(_env):
-        with open(_env) as _f:
+    if os.path.exists(_ENV_PATH):
+        with open(_ENV_PATH) as _f:
             for _line in _f:
                 _line = _line.strip()
                 if _line and not _line.startswith("#") and "=" in _line:
                     _k, _v = _line.split("=", 1)
-                    os.environ.setdefault(_k.strip(), _v.strip())
+                    os.environ[_k.strip()] = _v.strip()
+        print(f"✅ .env chargé (fallback manuel) depuis : {_ENV_PATH}")
+    else:
+        print(f"⚠️  Fichier .env introuvable : {_ENV_PATH}")
 
 # Compatibilité Windows (pg8000) + Linux/Render (psycopg2)
 try:
@@ -43,10 +48,23 @@ from flask_cors import CORS
 app = Flask(__name__, static_folder="static")
 CORS(app)
 
+@app.before_request
+def log_request():
+    print(f"→ {request.method} {request.path}  |  Auth: {'Bearer ...' if request.headers.get('Authorization','').startswith('Bearer ') else 'none'}")
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 SECRET_KEY   = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
 PORT         = int(os.environ.get("PORT", 5000))
 JWT_EXPIRY   = 30  # jours
+
+# ─── Vérification au démarrage ────────────────────────────────────────────────
+if not DATABASE_URL:
+    print("❌ ERREUR : DATABASE_URL non défini. Vérifiez votre fichier .env")
+else:
+    host = DATABASE_URL.split("@")[-1].split("/")[0] if "@" in DATABASE_URL else "?"
+    print(f"✅ DATABASE_URL chargé — hôte : {host}")
+    print(f"✅ Driver DB      : {DB_DRIVER}")
+    print(f"✅ SECRET_KEY     : {SECRET_KEY[:8]}... ({len(SECRET_KEY)} chars)")
 
 # ─── Base de données ──────────────────────────────────────────────────────────
 def get_conn():
@@ -115,15 +133,27 @@ def require_auth(f):
     def wrapper(*args, **kwargs):
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
+            print(f"❌ require_auth: pas de Bearer token sur {request.path}")
             return jsonify({"error": "Token manquant"}), 401
+        token_str = auth.split(" ", 1)[1]
+        if not token_str:
+            print(f"❌ require_auth: token vide sur {request.path}")
+            return jsonify({"error": "Token vide"}), 401
         try:
-            payload = decode_token(auth.split(" ", 1)[1])
+            payload = decode_token(token_str)
             request.user_id = payload["sub"]
             request.user_email = payload["email"]
         except jwt.ExpiredSignatureError:
+            print(f"❌ require_auth: token expiré sur {request.path}")
             return jsonify({"error": "Session expirée, veuillez vous reconnecter"}), 401
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            print(f"❌ require_auth: InvalidTokenError sur {request.path} — {type(e).__name__}: {e}")
+            print(f"   token_len={len(token_str)}, token_prefix={token_str[:20]}...")
+            print(f"   secret_key_used={SECRET_KEY[:8]}... ({len(SECRET_KEY)} chars)")
             return jsonify({"error": "Token invalide"}), 401
+        except Exception as e:
+            print(f"❌ require_auth: ERREUR INATTENDUE sur {request.path} — {type(e).__name__}: {e}")
+            return jsonify({"error": "Erreur d'authentification"}), 401
         return f(*args, **kwargs)
     return wrapper
 
@@ -161,9 +191,10 @@ def register():
         conn.commit()
         cur.close()
         conn.close()
-    except psycopg2.errors.UniqueViolation:
-        return jsonify({"error": "Cet email est déjà utilisé"}), 409
     except Exception as e:
+        err = str(e).lower()
+        if "unique" in err or "duplicate" in err:
+            return jsonify({"error": "Cet email est déjà utilisé"}), 409
         return jsonify({"error": f"Erreur serveur : {str(e)}"}), 500
 
     token = create_token(user_id, email)
@@ -181,12 +212,20 @@ def login():
 
     try:
         conn = get_conn()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT id, email, password_hash, nom FROM users WHERE email = %s", (email,))
-        user = cur.fetchone()
+        if DB_DRIVER == "psycopg2":
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute("SELECT id, email, password_hash, nom FROM users WHERE email = %s", (email,))
+            row = cur.fetchone()
+            user = dict(row) if row else None
+        else:
+            cur = conn.cursor()
+            cur.execute("SELECT id, email, password_hash, nom FROM users WHERE email = %s", (email,))
+            row = cur.fetchone()
+            user = {"id": row[0], "email": row[1], "password_hash": row[2], "nom": row[3]} if row else None
         cur.close()
         conn.close()
     except Exception as e:
+        print(f"❌ /api/login DB error: {e}")
         return jsonify({"error": f"Erreur serveur : {str(e)}"}), 500
 
     if not user:
@@ -195,6 +234,7 @@ def login():
         return jsonify({"error": "Email ou mot de passe incorrect"}), 401
 
     token = create_token(user["id"], user["email"])
+    print(f"✅ /api/login OK — user_id={user['id']} email={user['email']}")
     return jsonify({"token": token, "nom": user["nom"], "email": user["email"]}), 200
 
 
@@ -203,12 +243,19 @@ def login():
 def me():
     try:
         conn = get_conn()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT id, email, nom, created_at FROM users WHERE id = %s", (request.user_id,))
-        user = cur.fetchone()
+        if DB_DRIVER == "psycopg2":
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute("SELECT id, email, nom, created_at FROM users WHERE id = %s", (request.user_id,))
+            row = cur.fetchone()
+            result = dict(row) if row else {}
+        else:
+            cur = conn.cursor()
+            cur.execute("SELECT id, email, nom, created_at FROM users WHERE id = %s", (request.user_id,))
+            row = cur.fetchone()
+            result = {"id": row[0], "email": row[1], "nom": row[2], "created_at": str(row[3])} if row else {}
         cur.close()
         conn.close()
-        return jsonify(dict(user))
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -227,8 +274,11 @@ def load_data():
         row = cur.fetchone()
         cur.close()
         conn.close()
-        return jsonify(row[0] if row else {}), 200
+        result = row[0] if row else {}
+        print(f"✅ /api/load user={request.user_id} — {'données trouvées' if result else 'vide'}")
+        return jsonify(result), 200
     except Exception as e:
+        print(f"❌ /api/load user={request.user_id} — ERREUR : {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -237,6 +287,7 @@ def load_data():
 def save_data():
     data = request.get_json()
     if data is None:
+        print(f"⚠️  /api/save user={request.user_id} — corps JSON invalide")
         return jsonify({"error": "Corps JSON invalide"}), 400
     try:
         conn = get_conn()
@@ -246,12 +297,14 @@ def save_data():
             VALUES (%s, %s, NOW())
             ON CONFLICT (user_id)
             DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()
-        """, (request.user_id, json.dumps(data)))
+        """, (request.user_id, json.dumps(data, ensure_ascii=False)))
         conn.commit()
         cur.close()
         conn.close()
+        print(f"✅ /api/save user={request.user_id} — OK")
         return jsonify({"ok": True}), 200
     except Exception as e:
+        print(f"❌ /api/save user={request.user_id} — ERREUR : {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -293,15 +346,53 @@ def health():
     return jsonify({"status": "ok", "app": "Mon Patrimoine CI"}), 200
 
 
-# ─── Frontend ─────────────────────────────────────────────────────────────────
+# ─── Debug (public) ───────────────────────────────────────────────────────────
+@app.route("/api/verify-token", methods=["POST"])
+def verify_token():
+    """Test manuel : POST {"token":"..."} → décrypte le token et dit si c'est valide."""
+    body = request.get_json() or {}
+    token_str = body.get("token", "")
+    if not token_str:
+        return jsonify({"error": "token manquant dans le body"}), 400
+    try:
+        payload = jwt.decode(token_str, SECRET_KEY, algorithms=["HS256"])
+        return jsonify({"ok": True, "payload": payload, "secret_prefix": SECRET_KEY[:8]}), 200
+    except jwt.ExpiredSignatureError as e:
+        return jsonify({"ok": False, "error": "ExpiredSignatureError", "detail": str(e)}), 200
+    except jwt.InvalidTokenError as e:
+        return jsonify({"ok": False, "error": type(e).__name__, "detail": str(e), "secret_prefix": SECRET_KEY[:8]}), 200
+    except Exception as e:
+        return jsonify({"ok": False, "error": type(e).__name__, "detail": str(e)}), 200
+
+
+@app.route("/api/debug")
+def debug():
+    """Endpoint public pour vérifier la config au démarrage."""
+    db_host = DATABASE_URL.split("@")[-1].split("/")[0] if "@" in DATABASE_URL else "NON DÉFINI"
+    return jsonify({
+        "status": "ok",
+        "db_host": db_host,
+        "db_driver": DB_DRIVER,
+        "secret_key_len": len(SECRET_KEY),
+        "secret_key_prefix": SECRET_KEY[:8] + "...",
+        "env_path": _ENV_PATH,
+        "env_exists": os.path.exists(_ENV_PATH),
+    }), 200
+
+
+# ─── Frontend (DOIT être en dernier — catch-all uniquement pour non-API) ──────
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_frontend(path):
-    return send_from_directory(".", "index.html")
+    # Ne pas intercepter les routes API — Flask gère déjà l'ordre,
+    # mais on ajoute cette garde pour éviter tout comportement inattendu.
+    if path.startswith("api/"):
+        return jsonify({"error": "Route API introuvable"}), 404
+    return send_from_directory(_BASE_DIR, "index.html")
 
 
 # ─── Démarrage ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     init_db()
-    debug = os.environ.get("FLASK_ENV") == "development"
-    app.run(host="0.0.0.0", port=PORT, debug=debug)
+    _debug_mode = os.environ.get("FLASK_ENV") == "development"
+    app.run(host="0.0.0.0", port=PORT, debug=_debug_mode)

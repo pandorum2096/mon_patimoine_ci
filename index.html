@@ -221,9 +221,26 @@ const DEFAULT_PERIODE = () => ({ revenus: [], depenses: [], allocations: 0 });
 // ─── Auth & API ──────────────────────────────────────────────────────────────
 const API_BASE = "";
 
-function getToken() { try { return localStorage.getItem("patrimoine_token") || ""; } catch(_){return "";} }
-function setToken(t) { try { localStorage.setItem("patrimoine_token", t); } catch(_){} }
-function clearToken() { try { localStorage.removeItem("patrimoine_token"); } catch(_){} }
+const TOKEN_KEY = "patrimoine_token";
+function getToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY)
+        || sessionStorage.getItem(TOKEN_KEY)
+        || (window._patrimoineToken || "");
+  } catch(_) {
+    return window._patrimoineToken || "";
+  }
+}
+function setToken(t) {
+  window._patrimoineToken = t; // fallback mémoire toujours disponible
+  try { localStorage.setItem(TOKEN_KEY, t); } catch(_){}
+  try { sessionStorage.setItem(TOKEN_KEY, t); } catch(_){}
+}
+function clearToken() {
+  window._patrimoineToken = "";
+  try { localStorage.removeItem(TOKEN_KEY); } catch(_){}
+  try { sessionStorage.removeItem(TOKEN_KEY); } catch(_){}
+}
 function authHeaders() {
   return { "Content-Type": "application/json", "Authorization": "Bearer " + getToken() };
 }
@@ -240,7 +257,7 @@ async function loadDataFromAPI() {
   if (!token) return { ...DEFAULT_STATE };
   try {
     const r = await fetch(API_BASE + "/api/load", { headers: authHeaders() });
-    if (r.status === 401) { clearToken(); return { ...DEFAULT_STATE }; }
+    if (r.status === 401) { clearToken(); return null; }  // null = forcer logout
     if (!r.ok) throw new Error("HTTP " + r.status);
     const d = await r.json();
     if (d && d.profil) return { ...DEFAULT_STATE, ...d };
@@ -250,12 +267,43 @@ async function loadDataFromAPI() {
   return { ...DEFAULT_STATE };
 }
 
-function saveData(data) {
+// Callbacks globaux injectés par App
+let _setSaveStatus = null;
+let _setAuthUser = null;
+
+async function saveDataAsync(data) {
   const token = getToken();
   if (!token) return;
-  fetch(API_BASE + "/api/save", {
-    method: "POST", headers: authHeaders(), body: JSON.stringify(data),
-  }).catch(e => console.warn("Erreur sauvegarde:", e));
+  try {
+    const r = await fetch(API_BASE + "/api/save", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (r.status === 401) {
+      clearToken();
+      if (_setAuthUser) _setAuthUser(null);
+      if (_setSaveStatus) _setSaveStatus("error");
+      return false;
+    }
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      console.error("❌ Sauvegarde échouée:", r.status, err);
+      if (_setSaveStatus) _setSaveStatus("error");
+      return false;
+    }
+    if (_setSaveStatus) _setSaveStatus("ok");
+    return true;
+  } catch (e) {
+    console.error("❌ Erreur réseau sauvegarde:", e.message);
+    if (_setSaveStatus) _setSaveStatus("error");
+    return false;
+  }
+}
+
+function saveData(data) {
+  if (_setSaveStatus) _setSaveStatus("saving");
+  saveDataAsync(data);
 }
 
 function loadData() { return { ...DEFAULT_STATE }; }
@@ -431,6 +479,14 @@ function AuthScreen({ onAuth }) {
       const d = await r.json();
       if (!r.ok) { setError(d.error || "Erreur"); setLoading(false); return; }
       setToken(d.token);
+      // Diagnostic : vérifier que le token est bien stocké
+      const storedToken = getToken();
+      console.log("[Auth] Token reçu :", d.token ? d.token.substring(0, 30) + "..." : "VIDE");
+      console.log("[Auth] Token stocké dans localStorage :", storedToken ? storedToken.substring(0, 30) + "..." : "VIDE ← PROBLÈME");
+      if (!storedToken) {
+        console.error("[Auth] ERREUR : localStorage ne persiste pas ! Essai avec sessionStorage...");
+        try { sessionStorage.setItem("patrimoine_token_fallback", d.token); } catch(_){}
+      }
       onAuth(d);
     } catch (e) {
       setError("Impossible de joindre le serveur.");
@@ -2179,6 +2235,19 @@ function ModalNouveauMois({ moisPrecedent, moisCible, data, onChoix, onAnnuler }
 function App() {
   const [data, setDataRaw] = useState(() => loadData());
   const [appLoaded, setAppLoaded] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null); // null|"saving"|"ok"|"error"
+
+  // Brancher les callbacks globaux
+  useEffect(() => { _setSaveStatus = setSaveStatus; }, [setSaveStatus]);
+  useEffect(() => { _setAuthUser   = setAuthUser;   }, [setAuthUser]);
+
+  // Auto-reset du statut après 3s
+  useEffect(() => {
+    if (saveStatus === "ok" || saveStatus === "error") {
+      const t = setTimeout(() => setSaveStatus(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [saveStatus]);
   const [authUser, setAuthUser] = useState(() => {
     try {
       const t = getToken();
@@ -2194,6 +2263,12 @@ function App() {
   useEffect(() => {
     if (!authUser) { setAppLoaded(true); return; }
     loadDataFromAPI().then(d => {
+      if (d === null) {
+        // Token invalide ou expiré → forcer logout proprement
+        setAuthUser(null);
+        setAppLoaded(true);
+        return;
+      }
       setDataRaw(d);
       setAppLoaded(true);
     });
@@ -2348,6 +2423,9 @@ function App() {
         <div style={{ flex: 1, textAlign: "center" }}>
           <div style={{ fontSize: 11, color: "var(--muted)" }}>Solde disponible</div>
           <div style={{ color: solde >= 0 ? "var(--gold)" : "var(--red)", fontWeight: 800, fontSize: 15 }}>{fmt(solde)} FCFA</div>
+          {saveStatus === "saving" && <div style={{ fontSize: 10, color: "var(--muted)" }}>⏳ sync...</div>}
+          {saveStatus === "ok"     && <div style={{ fontSize: 10, color: "var(--green)" }}>✓ sauvegardé</div>}
+          {saveStatus === "error"  && <div style={{ fontSize: 10, color: "var(--red)" }}>✗ erreur sync</div>}
         </div>
         {/* Sélecteur mois */}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
