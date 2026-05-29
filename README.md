@@ -6,7 +6,7 @@ Application open source de gestion financière personnelle pour la Côte d'Ivoir
 
 ---
 
-## 🌟 Fonctionnalités 
+## 🌟 Fonctionnalités  
 
 - 9 onglets : Accueil, Budget, Graphiques, Objectifs, Investir, Conseil, Patrimoine, Formation, Profil
 - Multi-utilisateurs avec comptes sécurisés
