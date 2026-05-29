@@ -23,7 +23,7 @@
       --surface: #0F1E38;
       --border:  #1A3050;
       --text:    #D8E8FF;
-      --muted:   #4A6880;
+      --muted:   #7BA8C8;
       --gold:    #00C8FF;   /* primary: electric cyan */
       --red:     #FF3B6B;
       --green:   #00E87A;
@@ -119,12 +119,12 @@
       font-family: 'Space Grotesk', sans-serif;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
       border: none;
       background: transparent;
       color: var(--muted);
-      padding: 8px 14px;
+      padding: 11px 16px;
       border-bottom: 2px solid transparent;
       border-radius: 0;
       cursor: pointer;
@@ -146,6 +146,19 @@
     .num-anim  { animation: numPop 0.45s cubic-bezier(.4,0,.2,1) both; }
     .neon-text { animation: neonGlow 3s ease-in-out infinite; }
     .tab-content { animation: tabEnter 0.3s cubic-bezier(.4,0,.2,1) both; }
+    /* Espacement vertical automatique entre toutes les sections */
+    /* Gap entre sections de chaque onglet */
+    .tab-content > div > * { margin-bottom: 0; }
+    .tab-content > div {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    /* Grilles KPI — override pour rester en grid */
+    .tab-content > div > .stagger,
+    .tab-content > div > div[style*="grid"] {
+      display: grid !important;
+    }
     .stagger-1 { animation-delay: 0s !important; }
     .stagger-2 { animation-delay: 0.08s !important; }
     .stagger-3 { animation-delay: 0.16s !important; }
@@ -163,10 +176,10 @@
     .label-cyber {
       font-family: 'Space Grotesk', sans-serif;
       font-size: 10px;
-      font-weight: 500;
+      font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: #8BBAD8;
     }
 
     /* ─── INPUTS ─────────────────────────────────────────────── */
@@ -186,6 +199,46 @@
     input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none }
     a { color: var(--cyan); }
     #root { min-height:100vh }
+
+    /* ─── CARD SPACING ──────────────────────────────────────── */
+    .tab-content > div > * + * { margin-top: 0; }
+
+    /* ─── CARD HOVER LIFT ───────────────────────────────────── */
+    .card-hover {
+      transition: transform 0.22s cubic-bezier(.4,0,.2,1), box-shadow 0.22s cubic-bezier(.4,0,.2,1), border-color 0.22s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,200,255,0.15);
+      border-color: rgba(0,200,255,0.28) !important;
+    }
+
+    /* ─── STAT ROW ───────────────────────────────────────────── */
+    .stat-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid rgba(0,200,255,0.06);
+      transition: background 0.15s;
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-row:hover { background: rgba(0,200,255,0.03); border-radius: 4px; padding-left: 6px; }
+    .stat-label { font-size: 13px; color: #B0CCE0; font-weight: 500; }
+    .stat-value { font-size: 13px; color: #E8F4FF; font-weight: 600; }
+
+    /* ─── GLOW BADGE ─────────────────────────────────────────── */
+    .badge-ok   { background:rgba(0,232,122,0.12); color:#00E87A; border:1px solid rgba(0,232,122,0.25); border-radius:4px; padding:2px 8px; font-size:10px; font-weight:600; letter-spacing:0.08em; }
+    .badge-warn { background:rgba(245,166,35,0.12); color:#F5A623; border:1px solid rgba(245,166,35,0.25); border-radius:4px; padding:2px 8px; font-size:10px; font-weight:600; letter-spacing:0.08em; }
+    .badge-err  { background:rgba(255,59,107,0.12); color:#FF3B6B; border:1px solid rgba(255,59,107,0.25); border-radius:4px; padding:2px 8px; font-size:10px; font-weight:600; letter-spacing:0.08em; }
+
+    /* ─── CHART CONTAINER ───────────────────────────────────── */
+    .chart-wrap { padding: 8px 0; }
+
+    /* ─── STAGGER extra steps ───────────────────────────────── */
+    .stagger-5 { animation-delay: 0.32s !important; }
+    .stagger-6 { animation-delay: 0.40s !important; }
+
+    /* ─── FLIP HOVER ON KPI ──────────────────────────────────── */
+    @keyframes cardReveal { from{opacity:0;transform:translateY(14px) scale(0.97)} to{opacity:1;transform:none} }
+    .kpi-reveal { animation: cardReveal 0.4s cubic-bezier(.4,0,.2,1) both; }
 
     /* ─── RESPONSIVE ─────────────────────────────────────────── */
     input, select, textarea { font-size: 16px !important; }
@@ -261,16 +314,36 @@ const INVEST_TYPES = [
 ];
 
 const TIPS = [
-  "💡 La règle 50/30/20 : 50% besoins, 30% envies, 20% épargne.",
-  "📈 Le BRVM a progressé de +18% en 2024. Pensez long terme.",
-  "🛡️ Constituez 3 mois de dépenses en épargne d'urgence avant tout.",
-  "💰 Les intérêts composés : le temps est votre meilleur allié.",
-  "🎯 Un objectif sans plan est juste un souhait. Budgétisez vos rêves.",
-  "⚠️ Méfiez-vous des rendements supérieurs à 15%/an — souvent des arnaques.",
-  "🌱 Commencez petit : même 5 000 FCFA/mois peuvent changer votre avenir.",
-  "📊 Diversifiez : ne mettez pas tous vos œufs dans le même panier.",
-  "🏠 L'immobilier en CI reste un placement solide sur 10+ ans.",
-  "💳 Remboursez vos crédits à la consommation avant d'investir.",
+  "💡 Règle 50/30/20 : 50% besoins, 30% envies, 20% épargne — la base.",
+  "📈 Le BRVM a progressé de +18% en 2024. Pensez toujours long terme.",
+  "🛡️ Constituez 3 mois de dépenses en épargne d'urgence avant tout investissement.",
+  "💰 Intérêts composés : 50 000 FCFA/mois à 8% pendant 10 ans = 8,7M FCFA.",
+  "🎯 Un objectif sans plan est juste un souhait. Budgétisez chaque rêve.",
+  "⚠️ Méfiez-vous des rendements supérieurs à 20%/an — c'est souvent une arnaque.",
+  "🌱 Même 10 000 FCFA/mois épargnés font 120 000 FCFA par an. Commencez.",
+  "📊 Diversifiez : FCP + BRVM + terrain = portefeuille équilibré en CI.",
+  "🏠 Un terrain à Bingerville ou Songon acheté tôt peut doubler en 5 ans.",
+  "💳 Remboursez vos crédits conso à taux élevé avant d'investir en bourse.",
+  "🔄 Automatisez votre épargne dès réception du salaire. Ne comptez pas sur la volonté.",
+  "📱 Djamo Invest propose des FCP dès 1 000 FCFA. Aucune excuse pour ne pas commencer.",
+  "⚡ Une dépense impulsive de 50 000 FCFA = 2 mois d'épargne perdus à 5%.",
+  "🧮 Calculez votre taux d'épargne chaque mois. L'objectif : dépasser 20%.",
+  "💎 L'or physique (bijoux, pièces) est un bon moyen de protéger sa valeur en FCFA.",
+  "🌍 Les zones périurbaines d'Abidjan (Jacqueville, Grand-Bassam) offrent un fort potentiel.",
+  "📉 Ne vendez jamais vos actions BRVM dans la panique. Le marché se reprend toujours.",
+  "🎓 Formation financière = le meilleur investissement. ROI illimité.",
+  "🏦 NSIA Banque, Ecobank CI et SIB proposent des livrets épargne jusqu'à 4,5%.",
+  "🔐 Gardez 3 sources de revenus : salaire, investissement, activité secondaire.",
+  "📆 Revoyez votre budget tous les 1ers du mois. 15 minutes suffisent.",
+  "🚀 SONATEL, SIB et ORABANK sont parmi les valeurs les plus solides du BRVM.",
+  "💼 L'assurance-vie en CI (NSIA Vie) combine épargne et protection. À considérer.",
+  "🤝 Tontine + investissement formel = stratégie gagnante en CI.",
+  "🧩 Payez-vous en premier : virez l'épargne avant de dépenser le reste.",
+  "📌 Objectif concret : '500 000 FCFA en 6 mois pour un téléphone' bat 'économiser'.",
+  "⏳ Commencer à investir à 25 ans vs 35 ans : la différence finale est souvent x3.",
+  "🔍 Lisez toujours les frais de gestion avant tout placement. Ils mangent le rendement.",
+  "🌟 Chaque dépense est un choix. Demandez-vous : est-ce un besoin ou une envie ?",
+  "💪 La richesse ne vient pas du revenu, elle vient de la différence revenus - dépenses.",
 ];
 
 const PLACEMENTS = [
@@ -566,7 +639,7 @@ const THEMES = {
     "--surface": "#0F1E38",
     "--border":  "#1A3050",
     "--text":    "#D8E8FF",
-    "--muted":   "#4A6880",
+    "--muted":   "#7BA8C8",
     "--gold":    "#00C8FF",   // primary: electric cyan
     "--red":     "#FF3B6B",
     "--green":   "#00E87A",
@@ -582,7 +655,7 @@ const THEMES = {
     "--surface": "#E4EDFF",
     "--border":  "#C0D4F0",
     "--text":    "#0A1428",
-    "--muted":   "#5070A0",
+    "--muted":   "#4A70A0",
     "--gold":    "#0090CC",   // deeper cyan for light
     "--red":     "#D02050",
     "--green":   "#008A50",
@@ -603,7 +676,7 @@ const G = {
   card: {
     background: "rgba(11, 22, 40, 0.8)",
     border: "1px solid rgba(0,200,255,0.1)",
-    borderRadius: 8, padding: 18, marginBottom: 14,
+    borderRadius: 10, padding: "24px 22px", marginBottom: 0,
     animation: "slideUp 0.35s ease both",
     backdropFilter: "blur(12px)",
     WebkitBackdropFilter: "blur(12px)",
@@ -617,7 +690,7 @@ const G = {
   },
   cardAccent: {
     background: "rgba(11, 22, 40, 0.8)",
-    borderRadius: 8, padding: 18, marginBottom: 14,
+    borderRadius: 10, padding: "24px 22px", marginBottom: 0,
     border: "1px solid rgba(0,200,255,0.18)",
     boxShadow: "0 0 20px rgba(0,200,255,0.06), inset 0 1px 0 rgba(255,255,255,0.03)",
     backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
@@ -625,7 +698,7 @@ const G = {
   },
   cardCI: {
     background: "rgba(11, 22, 40, 0.8)",
-    borderRadius: 8, padding: 18, marginBottom: 14,
+    borderRadius: 10, padding: "24px 22px", marginBottom: 0,
     border: "1px solid rgba(123,95,255,0.2)",
     boxShadow: "0 0 20px rgba(123,95,255,0.06), inset 0 1px 0 rgba(255,255,255,0.03)",
     backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
@@ -669,8 +742,8 @@ const G = {
     fontFamily: "'Space Grotesk', sans-serif",
   },
   row: { display: "flex", gap: 12, alignItems: "center" },
-  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
-  grid4: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 },
+  grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 },
+  grid4: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 },
 };
 
 // ─── COMPOSANTS UTILITAIRES ─────────────────────────────────────────────────────
@@ -705,14 +778,14 @@ function KpiCard({ label, value, sub, color = "var(--gold)", icon }) {
       <div style={{ position:"absolute", top:0, left:0, right:0, height:1, background:`linear-gradient(90deg, ${color}, transparent)` }} />
       <div className="label-cyber" style={{ marginBottom: 8 }}>{label}</div>
       <div key={key} className="num-anim mono" style={{ color, fontSize: isMobile ? 17 : 24, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.5px" }}>{value}</div>
-      {sub && <div style={{ color: "var(--muted)", fontSize: isMobile ? 9 : 10, marginTop: 4, fontFamily:"'Space Grotesk',sans-serif", letterSpacing:"0.06em" }}>{sub}</div>}
+      {sub && <div style={{ color: "#8BBAD8", fontSize: isMobile ? 9 : 11, marginTop: 5, fontFamily:"'Space Grotesk',sans-serif", letterSpacing:"0.06em" }}>{sub}</div>}
     </div>
   );
 }
 
 function SectionHeader({ title, color = "var(--gold)" }) {
   return (
-    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
       <span className="mono" style={{ color, fontSize:10, opacity:0.6, letterSpacing:0 }}>{"///"}</span>
       <span style={{ color:"var(--text)", fontSize:11, fontWeight:600, letterSpacing:"0.12em", textTransform:"uppercase", fontFamily:"'Space Grotesk',sans-serif" }}>{title}</span>
       <div style={{ flex:1, height:"1px", background:`linear-gradient(90deg, ${color}44, transparent)` }} />
@@ -968,7 +1041,7 @@ function Onboarding({ onDone }) {
                 {[["🏠 Besoins", 0.5], ["🎮 Envies", 0.3], ["💰 Épargne", 0.2]].map(([label, r]) => (
                   <div key={label} style={{ marginBottom: 8 }}>
                     <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 3 }}>
-                      <span style={{ fontSize: 12, color: "var(--muted)" }}>{label}</span>
+                      <span style={{ fontSize: 12, color: "#9BBDD8" }}>{label}</span>
                       <span style={{ fontSize: 12, color: "var(--gold)", fontWeight: 700 }}>{fmt(revNum * r)} FCFA</span>
                     </div>
                     <ProgressBar value={r * 100} max={100} />
@@ -1003,7 +1076,7 @@ function Onboarding({ onDone }) {
                   <span style={{ fontSize: 24 }}>{p.icon}</span>
                   <div>
                     <div style={{ fontWeight: 700, color: "var(--text)" }}>{p.label}</div>
-                    <div style={{ fontSize: 12, color: "var(--muted)" }}>{p.desc}</div>
+                    <div style={{ fontSize: 12, color: "#9BBDD8", marginTop:4, lineHeight:1.5 }}>{p.desc}</div>
                   </div>
                 </div>
               </div>
@@ -1044,7 +1117,7 @@ function TabAccueil({ data, mois }) {
   const pctEnvies = revenus > 0 ? (envies / revenus) * 100 : 0;
   const pctEpargne = revenus > 0 ? (epargneTotal / revenus) * 100 : 0;
 
-  const tip = TIPS[new Date().getDate() % TIPS.length];
+  const today = new Date(); const tip = TIPS[(today.getDate() * 31 + today.getMonth()) % TIPS.length];
 
   return (
     <div>
@@ -1100,7 +1173,7 @@ function TabAccueil({ data, mois }) {
       {pctEpargne >= 20 && revenus > 0 && <Alert type="success">🎉 Bravo ! Vous épargnez {pctEpargne.toFixed(0)}% de vos revenus ce mois.</Alert>}
 
       {/* 4 KPI — grille 4 colonnes desktop, 2 colonnes mobile */}
-      <div className="stagger" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 8 : 12 }}>
+      <div className="stagger" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 12 : 16 }}>
         <div className="stagger-1"><KpiCard label="Revenus" value={`${fmt(revenus)}`} sub="FCFA" color="var(--green)" /></div>
         <div className="stagger-2"><KpiCard label="Dépenses" value={`${fmt(depenses)}`} sub="FCFA" color="var(--red)" /></div>
         <div className="stagger-3"><KpiCard label="Investi" value={`${fmt(investiMois)}`} sub="ce mois" color="var(--blue)" /></div>
@@ -1445,27 +1518,35 @@ function TabGraphiques({ data, mois }) {
   return (
     <div>
       {/* 3 KPI — grille 3 cols desktop, 1 col mobile */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 8 : 12 }}>
-        <KpiCard label="Taux épargne" value={`${tauxEpargne.toFixed(1)}%`} icon="💰" color={tauxEpargneColor} />
-        <KpiCard label="Dépense/jour" value={`${fmt(depJour)}`} sub="FCFA" icon="📅" />
-        <KpiCard label="Autonomie" value={`${Math.round(autonomie)} j`} icon="🗓️" color={autonomieColor} />
+      <div className="stagger" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 12 : 16 }}>
+        <div className="stagger-1"><KpiCard label="Taux épargne" value={`${tauxEpargne.toFixed(1)}%`} icon="💰" color={tauxEpargneColor} /></div>
+        <div className="stagger-2"><KpiCard label="Dépense/jour" value={`${fmt(depJour)}`} sub="FCFA" icon="📅" /></div>
+        <div className="stagger-3"><KpiCard label="Autonomie" value={`${Math.round(autonomie)} j`} icon="🗓️" color={autonomieColor} /></div>
+      </div>
+
+      {/* Extra KPI row 2 */}
+      <div className="stagger" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 12 : 16, marginBottom:24 }}>
+        <div className="stagger-1"><KpiCard label="Épargne ce mois" value={fmt(totalEpargne)} sub="FCFA" color="var(--accent)" /></div>
+        <div className="stagger-2"><KpiCard label="Investi" value={fmt(investi)} sub="FCFA" color="var(--blue)" /></div>
+        <div className="stagger-3"><KpiCard label="Objectifs" value={fmt(epargneObj)} sub="FCFA" color="var(--gold)" /></div>
+        <div className="stagger-4"><KpiCard label="Ratio I/D" value={depenses > 0 ? (investi/depenses*100).toFixed(0)+"%" : "—"} sub="investi/dépenses" color="var(--purple)" /></div>
       </div>
 
       {/* Fonds d'urgence */}
       <div style={G.card}>
         <SectionHeader title="Fonds d'urgence" color="var(--green)" />
-        <div style={{ ...G.row, justifyContent:"space-between", marginBottom:8 }}>
-          <span style={{ fontSize:13, color:"var(--muted)" }}>Constitué</span>
-          <span style={{ fontSize:14, fontWeight:700, color:"var(--gold)" }}>{fmt(fondsUrgence)} FCFA</span>
+        <div className="stat-row">
+          <span style={{ fontSize:13, color:"#B0CCE0", fontWeight:500 }}>Constitué</span>
+          <span className="mono" style={{ fontSize:14, fontWeight:700, color:"var(--gold)" }}>{fmt(fondsUrgence)} FCFA</span>
         </div>
-        <div style={{ ...G.row, justifyContent:"space-between", marginBottom:8 }}>
-          <span style={{ fontSize:13, color:"var(--muted)" }}>Objectif (3 mois)</span>
-          <span style={{ fontSize:13, color:"var(--muted)" }}>{fmt(objectifUrgence)} FCFA</span>
+        <div className="stat-row">
+          <span style={{ fontSize:13, color:"#B0CCE0", fontWeight:500 }}>Objectif (3 mois)</span>
+          <span className="stat-value">{fmt(objectifUrgence)} FCFA</span>
         </div>
         {depenses > 0 && (
-          <div style={{ ...G.row, justifyContent:"space-between", marginBottom:8 }}>
-            <span style={{ fontSize:13, color:"var(--muted)" }}>Couvre</span>
-            <span style={{ fontSize:13, color:"var(--text)", fontWeight:700 }}>
+          <div className="stat-row">
+            <span style={{ fontSize:13, color:"#B0CCE0", fontWeight:500 }}>Couvre</span>
+            <span className="mono" style={{ fontSize:13, color:"var(--text)", fontWeight:700 }}>
               {(fondsUrgence / (depenses || 1)).toFixed(1)} mois
             </span>
           </div>
@@ -1495,10 +1576,10 @@ function TabGraphiques({ data, mois }) {
           <ResponsiveContainer width="100%" height={isMobile ? 160 : 220}>
             <LineChart data={multiData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,200,255,0.06)" />
-              <XAxis dataKey="mois" tick={{fill:"#4A6880",fontSize:isMobile?9:11}} />
-              <YAxis tick={{fill:"#4A6880",fontSize:isMobile?9:11}} tickFormatter={v=>fmt(v/1000)+"k"} width={isMobile?38:50} />
+              <XAxis dataKey="mois" tick={{fill:"#8BBAD8",fontSize:isMobile?9:11}} />
+              <YAxis tick={{fill:"#8BBAD8",fontSize:isMobile?9:11}} tickFormatter={v=>fmt(v/1000)+"k"} width={isMobile?38:50} />
               <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"rgba(11,22,40,0.95)",border:"1px solid rgba(0,200,255,0.2)",borderRadius:4,fontFamily:"Space Mono,monospace",fontSize:11,boxShadow:"0 8px 24px rgba(0,0,0,0.5)"}} />
-              <Legend wrapperStyle={{fontSize: isMobile ? 10 : 12}} />
+              <Legend wrapperStyle={{fontSize: isMobile ? 10 : 12, color:"#8BBAD8"}} />
               <Line type="monotone" dataKey="Revenus" stroke="var(--green)" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Dépenses" stroke="var(--red)" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Solde" stroke="var(--gold)" strokeWidth={2} dot={false} />
@@ -1514,8 +1595,8 @@ function TabGraphiques({ data, mois }) {
           <ResponsiveContainer width="100%" height={isMobile ? 150 : 200}>
             <BarChart data={multiData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,200,255,0.06)" />
-              <XAxis dataKey="mois" tick={{fill:"#4A6880",fontSize:11}} />
-              <YAxis tick={{fill:"#4A6880",fontSize:11}} tickFormatter={v=>fmt(v/1000)+"k"} />
+              <XAxis dataKey="mois" tick={{fill:"#8BBAD8",fontSize:11}} />
+              <YAxis tick={{fill:"#8BBAD8",fontSize:11}} tickFormatter={v=>fmt(v/1000)+"k"} />
               <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"rgba(11,22,40,0.95)",border:"1px solid rgba(0,200,255,0.2)",borderRadius:4,fontFamily:"Space Mono,monospace",fontSize:11,boxShadow:"0 8px 24px rgba(0,0,0,0.5)"}} />
               <Legend />
               <Bar dataKey="Revenus" fill="var(--green)" radius={[4,4,0,0]} />
@@ -1556,7 +1637,7 @@ function TabGraphiques({ data, mois }) {
                 </span>
               </div>
               <div style={{ background:"var(--surface)", borderRadius:99, height:6, overflow:"hidden" }}>
-                <div style={{ width:`${(d.montant/maxDep)*100}%`, height:"100%", background:COLORS[i], borderRadius:99 }}/>
+                <div className="pb-fill" style={{ width:`${(d.montant/maxDep)*100}%`, height:"100%", background:COLORS[i], boxShadow:`0 0 6px ${COLORS[i]}88`, borderRadius:99 }}/>
               </div>
             </div>
           ))}
@@ -1677,7 +1758,7 @@ function TabObjectifs({ data, setData, mois }) {
         </div>
       )}
 
-      {data.objectifs.map(obj => {
+      {data.objectifs.map((obj, objIdx) => {
         const pct = obj.cible > 0 ? Math.min(100, (obj.epargne / obj.cible) * 100) : 0;
         const atteint = pct >= 100;
         const isAction = actionObj?.id === obj.id;
@@ -1827,7 +1908,7 @@ function TabInvestir({ data, setData, mois }) {
     <div>
       {/* Banner */}
       <div style={{ ...G.card, borderColor: "var(--gold)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? 8 : 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? 12 : 16 }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ color: "var(--muted)", fontSize: isMobile ? 10 : 12 }}>Solde disponible</div>
             <div style={{ color: "var(--gold)", fontSize: isMobile ? 16 : 22, fontWeight: 800 }}>{fmt(solde)} FCFA</div>
@@ -2001,18 +2082,12 @@ function TabConseil({ data, mois }) {
 
   return (
     <div>
-      {/* Banner profil */}
-      <div style={{ ...G.card, borderColor: "var(--gold)" }}>
-        <div style={G.grid2}>
-          <div>
-            <div style={{ color: "var(--muted)", fontSize: 12 }}>Profil investisseur</div>
-            <div style={{ color: "var(--gold)", fontSize: 16, fontWeight: 700, textTransform: "capitalize" }}>{profilRisque}</div>
-          </div>
-          <div>
-            <div style={{ color: "var(--muted)", fontSize: 12 }}>Solde mobilisable</div>
-            <div style={{ color: "var(--green)", fontSize: 16, fontWeight: 700 }}>{fmt(solde)} FCFA</div>
-          </div>
-        </div>
+      {/* Banner profil — futuristic 4-KPI row */}
+      <div className="stagger" style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile?8:12, marginBottom:18 }}>
+        <div className="stagger-1"><KpiCard label="Profil risque" value={profilRisque.toUpperCase()} color="var(--gold)" /></div>
+        <div className="stagger-2"><KpiCard label="Solde mobilisable" value={fmt(solde)} sub="FCFA" color="var(--green)" /></div>
+        <div className="stagger-3"><KpiCard label="Total patrimoine" value={fmt(data.patrimoine.reduce((a,p)=>a+p.valeurActuelle,0))} sub="FCFA" color="var(--cyan)" /></div>
+        <div className="stagger-4"><KpiCard label="Placements actifs" value={data.patrimoine.length} sub="actifs" color="var(--accent)" /></div>
       </div>
 
       {/* Simulateur */}
@@ -2053,21 +2128,21 @@ function TabConseil({ data, mois }) {
         </div>
 
         {/* Résultats */}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 8 : 10, marginTop: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 12 : 16, marginTop: 20 }}>
           <div style={{ ...G.card, textAlign: "center", padding: 12, margin: 0 }}>
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>Total versé</div>
-            <div style={{ color: "var(--blue)", fontWeight: 700, fontSize: 14 }}>{fmt(totalVerse)}</div>
-            <div style={{ fontSize: 10, color: "var(--muted)" }}>FCFA</div>
+            <div className="label-cyber" style={{ marginBottom:6 }}>Total versé</div>
+            <div className="mono" style={{ color: "var(--blue)", fontWeight: 700, fontSize: isMobile?16:20 }}>{fmt(totalVerse)}</div>
+            <div style={{ fontSize: 10, color: "var(--muted)", marginTop:2 }}>FCFA</div>
           </div>
           <div style={{ ...G.card, textAlign: "center", padding: 12, margin: 0 }}>
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>Gain</div>
-            <div style={{ color: "var(--green)", fontWeight: 700, fontSize: 14 }}>{fmt(gain)}</div>
-            <div style={{ fontSize: 10, color: "var(--muted)" }}>FCFA</div>
+            <div className="label-cyber" style={{ marginBottom:6 }}>Gain net</div>
+            <div className="mono" style={{ color: "var(--green)", fontWeight: 700, fontSize: isMobile?16:20 }}>{fmt(gain)}</div>
+            <div style={{ fontSize: 10, color: "var(--muted)", marginTop:2 }}>FCFA</div>
           </div>
           <div style={{ ...G.card, textAlign: "center", padding: 12, margin: 0, borderColor: "var(--gold)" }}>
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>Capital final</div>
-            <div style={{ color: "var(--gold)", fontWeight: 700, fontSize: 14 }}>{fmt(capitalFinal)}</div>
-            <div style={{ fontSize: 10, color: "var(--muted)" }}>FCFA</div>
+            <div className="label-cyber" style={{ marginBottom:6 }}>Capital final</div>
+            <div className="mono neon-text" style={{ color: "var(--gold)", fontWeight: 700, fontSize: isMobile?18:24 }}>{fmt(capitalFinal)}</div>
+            <div style={{ fontSize: 10, color: "var(--muted)", marginTop:2 }}>FCFA</div>
           </div>
         </div>
 
@@ -2224,7 +2299,7 @@ function TabPatrimoine({ data, setData, mois }) {
         <div style={{ color: "var(--muted)", fontSize: isMobile ? 11 : 12 }}>Patrimoine Net Total</div>
         <div style={{ color: "var(--gold)", fontSize: isMobile ? 22 : 30, fontWeight: 900, lineHeight: 1.2 }}>{fmt(patrimoineNet)} FCFA</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 8 : 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 12 : 16 }}>
         <KpiCard label="Actifs" value={fmt(totalActifs)} sub="FCFA" icon="💎" />
         <KpiCard label="Objectifs" value={fmt(epargneObj)} sub="FCFA" icon="🎯" />
         <KpiCard label="Plus-value" value={fmt(plusValue)} sub="FCFA" icon="📈" color={plusValueColor} />
@@ -2524,18 +2599,30 @@ function TabProfil({ data, setData, mois }) {
 
   return (
     <div>
-      <div style={{ ...G.card, textAlign: "center", borderColor: "var(--gold)" }}>
-        <div style={{ fontSize: 48 }}>👤</div>
-        <div style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", marginTop: 6 }}>{data.profil.nom}</div>
-        <div style={{ color: "var(--gold)", fontSize: 14, marginTop: 4 }}>
+      {/* Profile hero card */}
+      <div style={{
+        ...G.card, textAlign:"center", borderColor:"rgba(0,200,255,0.25)",
+        background:"linear-gradient(135deg,#0A1628 0%,#050913 60%,#0A0520 100%)",
+        position:"relative", overflow:"hidden", paddingTop:32, paddingBottom:28,
+        animation:"heroAura 5s ease-in-out infinite, slideUp 0.4s ease both",
+      }}>
+        <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:"linear-gradient(90deg,transparent,var(--cyan),transparent)" }} />
+        <div style={{
+          width:72, height:72, borderRadius:"50%", margin:"0 auto 14px",
+          background:"linear-gradient(135deg,rgba(0,200,255,0.15),rgba(123,95,255,0.2))",
+          border:"2px solid rgba(0,200,255,0.3)", display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:32, boxShadow:"0 0 20px rgba(0,200,255,0.15)",
+        }}>👤</div>
+        <div className="mono" style={{ fontSize:isMobile?18:22, fontWeight:700, color:"var(--text)", letterSpacing:"0.02em" }}>{data.profil.nom}</div>
+        <div style={{ color:"var(--gold)", fontSize:13, marginTop:6, letterSpacing:"0.08em", textTransform:"uppercase" }}>
           {profilIcons[data.profil.profilRisque]} Profil {data.profil.profilRisque}
         </div>
       </div>
 
       {/* Stats — 3 cols desktop, 2 cols mobile */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: isMobile ? 8 : 12 }}>
-        {stats.map(s => (
-          <KpiCard key={s.label} label={s.label} value={s.value} icon={s.icon} />
+      <div className="stagger" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: isMobile ? 12 : 16 }}>
+        {stats.map((s,i) => (
+          <div key={s.label} className={"stagger-"+(i%4+1)}><KpiCard label={s.label} value={s.value} icon={s.icon} /></div>
         ))}
       </div>
 
@@ -2571,9 +2658,9 @@ function TabProfil({ data, setData, mois }) {
               ["Revenu mensuel", `${fmt(data.profil.revenuMensuel)} FCFA`],
               ["Profil investisseur", `${profilIcons[data.profil.profilRisque]} ${data.profil.profilRisque}`],
             ].map(([label, val]) => (
-              <div key={label} style={{ ...G.row, justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                <span style={{ fontSize: 13, color: "var(--muted)" }}>{label}</span>
-                <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>{val}</span>
+              <div key={label} className="stat-row">
+                <span className="stat-label">{label}</span>
+                <span className="stat-value">{val}</span>
               </div>
             ))}
           </div>
@@ -2889,14 +2976,14 @@ function App() {
         position: "sticky", top: 0, zIndex: 100,
         background: "rgba(5,9,19,0.92)", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)",
         borderBottom: "1px solid rgba(0,200,255,0.08)",
-        padding: isMobile ? "8px 12px" : "10px 16px",
+        padding: isMobile ? "12px 14px" : "14px 24px",
         display: "flex", flexWrap: isMobile ? "wrap" : "nowrap",
         alignItems: "center", gap: isMobile ? 4 : 12,
       }}>
         {/* Logo futuriste */}
         <div style={{ whiteSpace: "nowrap", lineHeight: 1, display:"flex", alignItems:"center", gap:6 }}>
           <div style={{ width:6, height:6, background:"var(--cyan)", borderRadius:"50%", boxShadow:"0 0 8px var(--cyan)", animation:"pulse 2s ease-in-out infinite" }} />
-          <span className="mono" style={{ fontWeight: 700, color: "var(--cyan)", fontSize: isMobile ? 13 : 15, letterSpacing:"0.04em" }}>
+          <span className="mono" style={{ fontWeight: 700, color: "var(--cyan)", fontSize: isMobile ? 14 : 17, letterSpacing:"0.04em" }}>
             PATRIMOINE
           </span>
           <span className="mono" style={{ fontWeight: 400, color: "var(--muted)", fontSize: isMobile ? 11 : 13, letterSpacing:"0.04em" }}>
@@ -2906,13 +2993,14 @@ function App() {
 
         {/* Solde */}
         <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
-          <div className="label-cyber" style={{ marginBottom:2 }}>Solde disponible</div>
+          <div className="label-cyber" style={{ marginBottom:3, fontSize:9, color:"rgba(0,200,255,0.6)" }}>SOLDE DISPONIBLE</div>
           <div style={{ display:"flex", alignItems:"baseline", justifyContent:"center", gap:3 }}>
             <AnimatedNum value={solde} className="mono neon-text" style={{ color: soldeCouleur, fontWeight: 700, fontSize: isMobile ? 14 : 16, whiteSpace: "nowrap" }} />
             <span className="mono" style={{ color: soldeCouleur, fontSize: isMobile ? 10 : 11 }}>FCFA</span>
           </div>
         </div>
 
+        {/* Sélecteur de mois */}
         {/* Sélecteur de mois */}
         <div style={{ display:"flex", alignItems:"center", gap:4 }}>
           <button onClick={() => naviguerMois(prevMois(mois))} style={{ ...G.btn("var(--muted)"), padding:"6px 10px", fontSize:14, lineHeight:1 }}>‹</button>
@@ -2922,17 +3010,14 @@ function App() {
 
         {/* Contrôles */}
         <div style={{ display:"flex", alignItems:"center", gap:isMobile?6:8, marginLeft:"auto" }}>
-          {/* Save status */}
           {saveStatus === "saving" && <span className="mono" style={{ color:"var(--muted)", fontSize:10, letterSpacing:"0.08em" }}>SYNC…</span>}
-          {saveStatus === "ok" && <span className="mono" style={{ color:"var(--green)", fontSize:10, letterSpacing:"0.08em" }}>✓ OK</span>}
-          {saveStatus === "error" && <span className="mono" style={{ color:"var(--red)", fontSize:10, letterSpacing:"0.08em" }}>✗ ERR</span>}
-          {/* Theme toggle */}
+          {saveStatus === "ok"      && <span className="mono" style={{ color:"var(--green)", fontSize:10, letterSpacing:"0.08em" }}>✓ OK</span>}
+          {saveStatus === "error"   && <span className="mono" style={{ color:"var(--red)",   fontSize:10, letterSpacing:"0.08em" }}>✗ ERR</span>}
           <button onClick={toggleTheme} title="Thème" style={{ background:"transparent", border:"1px solid rgba(0,200,255,0.2)", borderRadius:4, color:"var(--muted)", fontSize:14, cursor:"pointer", padding:"5px 8px", lineHeight:1 }}>
             {theme === "dark" ? "○" : "◑"}
           </button>
-          {/* Logout */}
           {authUser && (
-            <button onClick={() => { clearToken(); setAuthUser(null); }} title="Déconnexion" style={{ background:"transparent", border:"1px solid rgba(255,59,107,0.3)", borderRadius:4, color:"var(--red)", fontSize:13, cursor:"pointer", padding:"5px 8px", lineHeight:1 }}>⏻</button>
+            <button onClick={handleLogout} title="Déconnexion" style={{ background:"transparent", border:"1px solid rgba(255,59,107,0.3)", borderRadius:4, color:"var(--red)", fontSize:13, cursor:"pointer", padding:"5px 8px", lineHeight:1 }}>⏻</button>
           )}
         </div>
       </header>
@@ -2949,7 +3034,6 @@ function App() {
             key={t.id}
             className={"nav-tab" + (activeTab === t.id ? " active" : "")}
             onClick={() => setActiveTab(t.id)}
-            style={{ padding: isMobile ? "10px 10px" : "12px 14px", whiteSpace:"nowrap", background:"transparent", border:"none", cursor:"pointer", color: activeTab === t.id ? "var(--cyan)" : "var(--muted)" }}
           >
             {t.label}
           </button>
@@ -2957,7 +3041,7 @@ function App() {
       </nav>
 
       {/* Contenu principal */}
-      <main style={{ padding: isMobile ? "12px 10px" : "20px 16px", maxWidth:900, margin:"0 auto" }}>
+      <main style={{ padding: isMobile ? "16px 12px" : "28px 20px", maxWidth:920, margin:"0 auto" }}>
         <div key={activeTab} className="tab-content">
           {activeTab === "accueil"    && <TabAccueil    data={data} setData={setData} mois={mois} />}
           {activeTab === "budget"     && <TabBudget     data={data} setData={setData} mois={mois} />}
