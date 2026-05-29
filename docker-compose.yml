@@ -7,9 +7,53 @@ services:
       - "5000:5000"
     env_file:
       - .env
+    environment:
+      # Ollama tourne dans le même réseau Docker, on pointe vers le service
+      - OLLAMA_URL=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"          # exposé en local pour debug / Ollama Desktop
+    volumes:
+      - ollama_data:/root/.ollama   # persistance des modèles entre restarts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s        # laisse le temps à Ollama de démarrer
+
+  # Service one-shot : télécharge llama3 au premier lancement si absent
+  ollama-pull:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: >
+      sh -c "
+        until curl -sf http://ollama:11434/api/tags; do
+          echo 'En attente du service Ollama...'; sleep 3;
+        done &&
+        ollama pull llama3 &&
+        echo 'Modèle llama3 prêt.'
+      "
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  ollama_data:
+    driver: local

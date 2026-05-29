@@ -11,6 +11,7 @@ import datetime
 import functools
 import bcrypt
 import jwt
+import urllib.request as _urllib_req
 
 # Charger .env automatiquement (développement local)
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -342,58 +343,139 @@ def delete_account():
 
 
 # ─── Health check ─────────────────────────────────────────────────────────────
-@app.route("/health")
-def health():
-    return jsonify({"status": "ok", "app": "Mon Patrimoine CI"}), 200
+# ─── IA Ollama — Conseil personnalisé ────────────────────────────────────────
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 
-
-# ─── Debug (public) ───────────────────────────────────────────────────────────
-@app.route("/api/verify-token", methods=["POST"])
-def verify_token():
-    """Test manuel : POST {"token":"..."} → décrypte le token et dit si c'est valide."""
+@app.route("/api/conseil-ia", methods=["POST"])
+@require_auth
+def conseil_ia():
+    """
+    Génère un conseil financier personnalisé via Ollama (LLM local).
+    Body JSON :
+      { profile, revenus, depenses, solde, epargne, patrimoine, objectifs, model }
+    """
     body = request.get_json() or {}
-    token_str = body.get("token", "")
-    if not token_str:
-        return jsonify({"error": "token manquant dans le body"}), 400
+
+    profile      = body.get("profile",    {})
+    revenus      = body.get("revenus",    0)
+    depenses     = body.get("depenses",   0)
+    solde        = body.get("solde",      0)
+    epargne      = body.get("epargne",    0)
+    patrimoine   = body.get("patrimoine", 0)
+    objectifs    = body.get("objectifs",  [])
+    actifs       = body.get("actifs",     [])
+    mois         = body.get("mois",       "")
+    model        = body.get("model",      "llama3")
+
+    nom          = profile.get("nom",           "l'utilisateur")
+    revenu_m     = profile.get("revenuMensuel", 0)
+    profil_r     = profile.get("profilRisque",  "équilibré")
+
+    taux_ep = round(epargne / revenus * 100, 1) if revenus > 0 else 0
+
+    obj_txt = ""
+    if objectifs:
+        obj_txt = ", ".join([f"{o.get('nom','?')} ({o.get('epargne',0):,.0f}/{o.get('cible',0):,.0f} FCFA)" for o in objectifs[:4]])
+    else:
+        obj_txt = "Aucun objectif défini"
+
+    actif_txt = ""
+    if actifs:
+        actif_txt = ", ".join([f"{a.get('nom','?')} ({a.get('valeurActuelle',0):,.0f} FCFA)" for a in actifs[:5]])
+    else:
+        actif_txt = "Aucun actif enregistré"
+
+    prompt = f"""Tu es un conseiller financier expert spécialisé en finances personnelles en Côte d'Ivoire (zone UEMOA, devise FCFA).
+Tu donnes des conseils précis, concrets et adaptés au contexte ivoirien. Réponds en français.
+
+PROFIL :
+- Nom : {nom}
+- Revenu mensuel déclaré : {revenu_m:,.0f} FCFA
+- Profil de risque : {profil_r}
+
+SITUATION DU MOIS ({mois}) :
+- Revenus encaissés : {revenus:,.0f} FCFA
+- Dépenses : {depenses:,.0f} FCFA
+- Épargne + investissements : {epargne:,.0f} FCFA
+- Taux d'épargne : {taux_ep}%
+- Solde disponible : {solde:,.0f} FCFA
+- Patrimoine net total : {patrimoine:,.0f} FCFA
+
+ACTIFS DÉTENUS : {actif_txt}
+OBJECTIFS EN COURS : {obj_txt}
+
+MISSION : Donne 4 à 5 conseils financiers personnalisés, précis et actionnables basés sur cette situation réelle.
+- Inclus des montants FCFA concrets et réalistes
+- Mentionne des produits disponibles en CI si pertinent (Djamo Invest, NSIA AM, BRVM, Orange Money Épargne, etc.)
+- Sois direct, bienveillant et motivant
+- Structure ta réponse avec des titres courts (ex: "💡 Optimise ton épargne") et des points clairs
+- Maximum 500 mots
+
+Réponds uniquement en français."""
+
     try:
-        payload = jwt.decode(token_str, SECRET_KEY, algorithms=["HS256"])
-        return jsonify({"ok": True, "payload": payload, "secret_prefix": SECRET_KEY[:8]}), 200
-    except jwt.ExpiredSignatureError as e:
-        return jsonify({"ok": False, "error": "ExpiredSignatureError", "detail": str(e)}), 200
-    except jwt.InvalidTokenError as e:
-        return jsonify({"ok": False, "error": type(e).__name__, "detail": str(e), "secret_prefix": SECRET_KEY[:8]}), 200
+        payload = json.dumps({
+            "model":   model,
+            "prompt":  prompt,
+            "stream":  False,
+            "options": {"temperature": 0.7, "num_predict": 700}
+        }).encode("utf-8")
+
+        req = _urllib_req.Request(
+            f"{OLLAMA_URL}/api/generate",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with _urllib_req.urlopen(req, timeout=120) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+            conseil = result.get("response", "").strip()
+
+        return jsonify({"ok": True, "conseil": conseil, "model": model}), 200
+
     except Exception as e:
-        return jsonify({"ok": False, "error": type(e).__name__, "detail": str(e)}), 200
+        err = str(e)
+        if "Connection refused" in err or "111" in err:
+            return jsonify({
+                "ok":    False,
+                "error": f"Ollama n'est pas joignable sur {OLLAMA_URL}. Vérifiez qu'il tourne (ollama serve)."
+            }), 503
+        return jsonify({"ok": False, "conseil": "", "error": err}), 500
 
 
-@app.route("/api/debug")
-def debug():
-    """Endpoint public pour vérifier la config au démarrage."""
-    db_host = DATABASE_URL.split("@")[-1].split("/")[0] if "@" in DATABASE_URL else "NON DÉFINI"
-    return jsonify({
-        "status": "ok",
-        "db_host": db_host,
-        "db_driver": DB_DRIVER,
-        "secret_key_len": len(SECRET_KEY),
-        "secret_key_prefix": SECRET_KEY[:8] + "...",
-        "env_path": _ENV_PATH,
-        "env_exists": os.path.exists(_ENV_PATH),
-    }), 200
+# ─── Ollama : liste des modèles disponibles ────────────────────────────────────
+@app.route("/api/ollama-models", methods=["GET"])
+@require_auth
+def ollama_models():
+    try:
+        req = _urllib_req.Request(f"{OLLAMA_URL}/api/tags", method="GET")
+        with _urllib_req.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            models = [m["name"] for m in data.get("models", [])]
+        return jsonify({"ok": True, "models": models}), 200
+    except Exception as e:
+        return jsonify({"ok": False, "models": [], "error": str(e)}), 200
 
 
-# ─── Frontend (DOIT être en dernier — catch-all uniquement pour non-API) ──────
+# ─── Health check ──────────────────────────────────────────────────────────────
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"}), 200
+
+
+# ─── Servir index.html pour toutes les routes non-API ─────────────────────────
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_frontend(path):
-    # Ne pas intercepter les routes API — Flask gère déjà l'ordre,
-    # mais on ajoute cette garde pour éviter tout comportement inattendu.
     if path.startswith("api/"):
-        return jsonify({"error": "Route API introuvable"}), 404
+        return jsonify({"error": "Not found"}), 404
     return send_from_directory(_BASE_DIR, "index.html")
 
 
-# ─── Démarrage ────────────────────────────────────────────────────────────────
+# ─── Point d'entrée local ──────────────────────────────────────────────────────
 if __name__ == "__main__":
-    init_db()
-    _debug_mode = os.environ.get("FLASK_ENV") == "development"
-    app.run(host="0.0.0.0", port=PORT, debug=_debug_mode)
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_ENV", "production") == "development"
+    print(f"🚀 Serveur démarré sur http://localhost:{port}")
+    print(f"🤖 Ollama URL : {OLLAMA_URL}")
+    app.run(host="0.0.0.0", port=port, debug=debug)

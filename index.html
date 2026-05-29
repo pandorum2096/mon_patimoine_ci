@@ -2200,9 +2200,209 @@ function TabConseil({ data, mois }) {
           </div>
         ))}
       </div>
+
+      {/* IA Ollama — Conseil personnalisé */}
+      <OllamaConseil data={data} mois={mois} />
     </div>
   );
 }
+
+function OllamaConseil({ data, mois }) {
+  const [iaModel, setIaModel] = useState("llama3");
+  const [iaModels, setIaModels] = useState([]);
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaResponse, setIaResponse] = useState("");
+  const [iaError, setIaError] = useState("");
+  const [dots, setDots] = useState("");
+
+  const OLLAMA_DIRECT = "http://localhost:11434";
+
+  // Charge les modèles : essaie Flask, sinon Ollama direct
+  useEffect(() => {
+    const token = getToken();
+    const viaFlask = token
+      ? fetch("/api/ollama-models", { headers: { Authorization: "Bearer " + token } })
+          .then(r => r.json()).then(d => d.ok && d.models.length ? d.models : null).catch(() => null)
+      : Promise.resolve(null);
+
+    viaFlask.then(models => {
+      if (models) { setIaModels(models); return; }
+      // Fallback : appel direct à Ollama
+      fetch(OLLAMA_DIRECT + "/api/tags")
+        .then(r => r.json())
+        .then(d => { const ms = (d.models||[]).map(m=>m.name); if (ms.length) setIaModels(ms); })
+        .catch(() => {});
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!iaLoading) { setDots(""); return; }
+    const iv = setInterval(() => setDots(p => p.length >= 3 ? "" : p + "."), 400);
+    return () => clearInterval(iv);
+  }, [iaLoading]);
+
+  // Construit le prompt français côté frontend (utilisé pour l'appel direct)
+  const buildPrompt = (revenus, depenses, solde, epargne, patrimoine, objectifs, actifs) => {
+    const nom = data.profil.nom || "l'utilisateur";
+    const revenuM = data.profil.revenuMensuel || 0;
+    const profilR = data.profil.profilRisque || "équilibré";
+    const tauxEp = revenus > 0 ? Math.round(epargne / revenus * 100) : 0;
+    const objTxt = objectifs.length
+      ? objectifs.slice(0,4).map(o=>`${o.nom} (${o.epargne.toLocaleString()}/${o.cible.toLocaleString()} FCFA)`).join(", ")
+      : "Aucun objectif défini";
+    const actifTxt = actifs.length
+      ? actifs.slice(0,5).map(a=>`${a.nom} (${a.valeur.toLocaleString()} FCFA)`).join(", ")
+      : "Aucun actif enregistré";
+    return `Tu es un conseiller financier expert spécialisé en finances personnelles en Côte d'Ivoire (zone UEMOA, devise FCFA). Réponds en français.
+
+PROFIL :
+- Nom : ${nom}
+- Revenu mensuel : ${revenuM.toLocaleString()} FCFA
+- Profil de risque : ${profilR}
+
+SITUATION DU MOIS (${mois}) :
+- Revenus : ${revenus.toLocaleString()} FCFA
+- Dépenses : ${depenses.toLocaleString()} FCFA
+- Épargne/investissements : ${epargne.toLocaleString()} FCFA  (taux : ${tauxEp}%)
+- Solde disponible : ${solde.toLocaleString()} FCFA
+- Patrimoine net : ${patrimoine.toLocaleString()} FCFA
+
+ACTIFS : ${actifTxt}
+OBJECTIFS : ${objTxt}
+
+MISSION : Donne 4 à 5 conseils financiers personnalisés, précis et actionnables.
+- Inclus des montants FCFA concrets
+- Mentionne des produits CI si pertinent (Djamo Invest, NSIA AM, BRVM, Orange Money Épargne…)
+- Structure avec des titres courts (ex: "💡 Optimise ton épargne") et des points clairs
+- Maximum 500 mots. Réponds uniquement en français.`;
+  };
+
+  const analyser = useCallback(() => {
+    setIaLoading(true); setIaError(""); setIaResponse("");
+    const p = getPeriode(data, mois);
+    const revenus   = p.revenus.reduce((a,r)=>a+r.montant,0);
+    const depenses  = p.depenses.reduce((a,d)=>a+d.montant,0);
+    const solde     = getSolde(data, mois);
+    const epargne   = data.transactions.filter(t=>t.mois===mois&&(t.type==="objectif"||t.type==="investissement")).reduce((a,t)=>a+t.montant,0);
+    const patrimoine= data.patrimoine.reduce((a,pt)=>a+pt.valeurActuelle,0);
+    const actifs    = data.patrimoine.map(pt=>({ nom:pt.nom, type:pt.type, valeur:pt.valeurActuelle }));
+    const objectifs = data.objectifs.map(o=>({ nom:o.nom, cible:o.cible, epargne:o.epargne }));
+
+    const token = getToken();
+
+    // Essaie d'abord via Flask (si dispo), sinon appel direct Ollama
+    const viaFlask = token
+      ? fetch("/api/conseil-ia", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+          body: JSON.stringify({ profile:data.profil, revenus, depenses, solde, epargne, patrimoine, objectifs, actifs, mois, model:iaModel })
+        }).then(r => { if (!r.ok) throw new Error("flask_err"); return r.json(); })
+          .then(d => { if (!d.ok) throw new Error(d.error||"flask_err"); return d.conseil; })
+      : Promise.reject("no_token");
+
+    viaFlask
+      .then(conseil => { setIaLoading(false); setIaResponse(conseil); })
+      .catch(() => {
+        // Fallback : appel direct à Ollama depuis le navigateur
+        const prompt = buildPrompt(revenus, depenses, solde, epargne, patrimoine, objectifs, actifs);
+        fetch(OLLAMA_DIRECT + "/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: iaModel, prompt, stream: false, options: { temperature: 0.7, num_predict: 700 } })
+        })
+        .then(r => r.json())
+        .then(d => { setIaLoading(false); setIaResponse(d.response || "Réponse vide."); })
+        .catch(() => {
+          setIaLoading(false);
+          setIaError("Ollama inaccessible. Vérifiez qu'Ollama tourne et que le modèle est installé.");
+        });
+      });
+  }, [data, mois, iaModel]);
+
+  return (
+    <div style={{ ...G.card, border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.05)" }}>
+      <SectionHeader title="🤖 Conseil IA personnalisé" color="var(--purple)" />
+      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 14 }}>
+        Analyse approfondie de votre situation financière par intelligence artificielle (Ollama local).
+      </div>
+
+      {/* Model selector + button */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 180 }}>
+          <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>Modèle IA :</span>
+          <select
+            value={iaModel}
+            onChange={e => setIaModel(e.target.value)}
+            style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(139,92,246,0.4)", background: "rgba(15,20,35,0.8)", color: "var(--text)", fontSize: 12, fontFamily: "Space Mono,monospace" }}
+          >
+            {iaModels.length > 0
+              ? iaModels.map(m => <option key={m} value={m}>{m}</option>)
+              : ["llama3","llama3:8b","mistral","gemma2","phi3","qwen2"].map(m => <option key={m} value={m}>{m}</option>)
+            }
+          </select>
+        </div>
+        <button
+          onClick={analyser}
+          disabled={iaLoading}
+          style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: iaLoading ? "rgba(139,92,246,0.3)" : "linear-gradient(135deg,#8B5CF6,#6D28D9)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: iaLoading ? "default" : "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 6 }}
+        >
+          {iaLoading ? <>⏳ Analyse{dots}</> : "🤖 Analyser mon profil"}
+        </button>
+      </div>
+
+      {/* Loading */}
+      {iaLoading && (
+        <div style={{ padding: "18px 0", textAlign: "center" }}>
+          <div style={{ display: "inline-block", width: 36, height: 36, border: "3px solid rgba(139,92,246,0.2)", borderTopColor: "var(--purple)", borderRadius: "50%", animation: "spin 0.8s linear infinite", marginBottom: 10 }} />
+          <div style={{ fontSize: 12, color: "var(--muted)", fontFamily: "Space Mono,monospace" }}>Génération du conseil en cours{dots}</div>
+        </div>
+      )}
+
+      {/* Error */}
+      {iaError && !iaLoading && (
+        <div style={{ padding: 12, borderRadius: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--red)", fontSize: 12, marginTop: 6 }}>
+          ⚠️ {iaError}
+          {iaError.includes("Ollama") && (
+            <div style={{ marginTop: 6, fontSize: 11, color: "var(--muted)" }}>
+              Vérifiez que le conteneur Ollama tourne : <code style={{ background: "rgba(0,0,0,0.3)", padding: "1px 6px", borderRadius: 3 }}>docker compose up ollama -d</code>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* AI Response */}
+      {iaResponse && !iaLoading && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 8px var(--green)" }} />
+            <span style={{ fontSize: 11, color: "var(--green)", fontWeight: 600 }}>Analyse générée par {iaModel}</span>
+          </div>
+          <div style={{ background: "rgba(15,20,35,0.6)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: 10, padding: "16px 18px", lineHeight: 1.7 }}>
+            {iaResponse.split("\n").filter(l => l.trim()).map((line, i) => {
+              const isTitre = line.startsWith("##") || line.startsWith("**") || /^[🎯💡📊🏦⚡🔑✅⚠️]/.test(line);
+              return (
+                <div key={i} style={{
+                  fontSize: isTitre ? 13 : 12,
+                  color: isTitre ? "var(--text)" : "var(--muted)",
+                  fontWeight: isTitre ? 700 : 400,
+                  marginBottom: isTitre ? 8 : 4,
+                  marginTop: isTitre && i > 0 ? 12 : 0,
+                  paddingLeft: !isTitre && line.startsWith("-") ? 8 : 0,
+                }}>
+                  {line.replace(/^\*\*|\*\*$/g, "").replace(/^##\s?/, "")}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, textAlign: "right", opacity: 0.6 }}>
+            IA locale · Aucune donnée envoyée en ligne · {new Date().toLocaleDateString("fr-FR")}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── ONGLET PATRIMOINE ───────────────────────────────────────────────────────────
 function TabPatrimoine({ data, setData, mois }) {
   const isMobile = useMobile();
@@ -3013,16 +3213,15 @@ function App() {
           {saveStatus === "saving" && <span className="mono" style={{ color:"var(--muted)", fontSize:10, letterSpacing:"0.08em" }}>SYNC…</span>}
           {saveStatus === "ok"      && <span className="mono" style={{ color:"var(--green)", fontSize:10, letterSpacing:"0.08em" }}>✓ OK</span>}
           {saveStatus === "error"   && <span className="mono" style={{ color:"var(--red)",   fontSize:10, letterSpacing:"0.08em" }}>✗ ERR</span>}
-          <button onClick={toggleTheme} title="Thème" style={{ background:"transparent", border:"1px solid rgba(0,200,255,0.2)", borderRadius:4, color:"var(--muted)", fontSize:14, cursor:"pointer", padding:"5px 8px", lineHeight:1 }}>
+          <button onClick={toggleTheme} style={{ background:"transparent", border:"1px solid rgba(0,200,255,0.2)", borderRadius:4, color:"var(--muted)", fontSize:14, cursor:"pointer", padding:"5px 8px", lineHeight:1 }}>
             {theme === "dark" ? "○" : "◑"}
           </button>
           {authUser && (
-            <button onClick={handleLogout} title="Déconnexion" style={{ background:"transparent", border:"1px solid rgba(255,59,107,0.3)", borderRadius:4, color:"var(--red)", fontSize:13, cursor:"pointer", padding:"5px 8px", lineHeight:1 }}>⏻</button>
+            <button onClick={handleLogout} style={{ background:"transparent", border:"1px solid rgba(255,59,107,0.3)", borderRadius:4, color:"var(--red)", fontSize:13, cursor:"pointer", padding:"5px 8px", lineHeight:1 }}>⏻</button>
           )}
         </div>
       </header>
 
-      {/* Navigation */}
       <nav style={{
         position:"sticky", top: isMobile ? 56 : 62, zIndex:99,
         background:"rgba(5,9,19,0.95)", backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
@@ -3030,17 +3229,12 @@ function App() {
         display:"flex", overflowX:"auto", gap:0, padding:"0 8px",
       }}>
         {TABS.map(t => (
-          <button
-            key={t.id}
-            className={"nav-tab" + (activeTab === t.id ? " active" : "")}
-            onClick={() => setActiveTab(t.id)}
-          >
+          <button key={t.id} className={"nav-tab" + (activeTab === t.id ? " active" : "")} onClick={() => setActiveTab(t.id)}>
             {t.label}
           </button>
         ))}
       </nav>
 
-      {/* Contenu principal */}
       <main style={{ padding: isMobile ? "16px 12px" : "28px 20px", maxWidth:920, margin:"0 auto" }}>
         <div key={activeTab} className="tab-content">
           {activeTab === "accueil"    && <TabAccueil    data={data} setData={setData} mois={mois} />}
@@ -3055,14 +3249,10 @@ function App() {
         </div>
       </main>
 
-      {/* Modal changement de période */}
       {pendingMois && (
         <ModalNouveauMois
-          moisPrecedent={mois}
-          moisCible={pendingMois}
-          data={data}
-          onChoix={handleChoixMois}
-          onAnnuler={() => setPendingMois(null)}
+          moisPrecedent={mois} moisCible={pendingMois} data={data}
+          onChoix={handleChoixMois} onAnnuler={() => setPendingMois(null)}
         />
       )}
     </>
@@ -3070,7 +3260,6 @@ function App() {
   );
 }
 
-// ─── RENDU ───────────────────────────────────────────────────────────────────
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
 </script>
