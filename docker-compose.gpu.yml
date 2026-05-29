@@ -1,0 +1,12 @@
+# Override GPU NVIDIA — RTX 3060 Ti détectée sur ta machine
+# Usage : docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

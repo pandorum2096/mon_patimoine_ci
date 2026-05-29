@@ -342,50 +342,28 @@ def delete_account():
         return jsonify({"error": str(e)}), 500
 
 
-# ─── Health check ─────────────────────────────────────────────────────────────
-# ─── IA Ollama — Conseil personnalisé ────────────────────────────────────────
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+# ─── IA — Config auto : Groq (production) ou Ollama (local) ──────────────────
+#
+#  LOCAL  (FLASK_ENV=development ou pas de GROQ_API_KEY) → Ollama localhost:11434
+#  RENDER (GROQ_API_KEY définie dans les env vars)        → Groq Cloud (gratuit)
+#
+OLLAMA_URL   = os.environ.get("OLLAMA_URL",   "http://localhost:11434")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+FLASK_ENV    = os.environ.get("FLASK_ENV",    "production")
 
-@app.route("/api/conseil-ia", methods=["POST"])
-@require_auth
-def conseil_ia():
-    """
-    Génère un conseil financier personnalisé via Ollama (LLM local).
-    Body JSON :
-      { profile, revenus, depenses, solde, epargne, patrimoine, objectifs, model }
-    """
-    body = request.get_json() or {}
+# En production on utilise Groq si la clé est présente, sinon Ollama
+USE_GROQ = bool(GROQ_API_KEY) and FLASK_ENV != "development"
 
-    profile      = body.get("profile",    {})
-    revenus      = body.get("revenus",    0)
-    depenses     = body.get("depenses",   0)
-    solde        = body.get("solde",      0)
-    epargne      = body.get("epargne",    0)
-    patrimoine   = body.get("patrimoine", 0)
-    objectifs    = body.get("objectifs",  [])
-    actifs       = body.get("actifs",     [])
-    mois         = body.get("mois",       "")
-    model        = body.get("model",      "llama3")
+# Modèle Groq par défaut (llama3 compatible, gratuit)
+GROQ_MODEL_DEFAULT = "llama3-8b-8192"
+GROQ_API_URL       = "https://api.groq.com/openai/v1/chat/completions"
 
-    nom          = profile.get("nom",           "l'utilisateur")
-    revenu_m     = profile.get("revenuMensuel", 0)
-    profil_r     = profile.get("profilRisque",  "équilibré")
+print(f"🤖 Mode IA : {'GROQ CLOUD (' + GROQ_MODEL_DEFAULT + ')' if USE_GROQ else 'OLLAMA LOCAL (' + OLLAMA_URL + ')'}")
 
+
+def _build_prompt(nom, revenu_m, profil_r, mois, revenus, depenses, epargne, solde, patrimoine, actif_txt, obj_txt):
     taux_ep = round(epargne / revenus * 100, 1) if revenus > 0 else 0
-
-    obj_txt = ""
-    if objectifs:
-        obj_txt = ", ".join([f"{o.get('nom','?')} ({o.get('epargne',0):,.0f}/{o.get('cible',0):,.0f} FCFA)" for o in objectifs[:4]])
-    else:
-        obj_txt = "Aucun objectif défini"
-
-    actif_txt = ""
-    if actifs:
-        actif_txt = ", ".join([f"{a.get('nom','?')} ({a.get('valeurActuelle',0):,.0f} FCFA)" for a in actifs[:5]])
-    else:
-        actif_txt = "Aucun actif enregistré"
-
-    prompt = f"""Tu es un conseiller financier expert spécialisé en finances personnelles en Côte d'Ivoire (zone UEMOA, devise FCFA).
+    return f"""Tu es un conseiller financier expert spécialisé en finances personnelles en Côte d'Ivoire (zone UEMOA, devise FCFA).
 Tu donnes des conseils précis, concrets et adaptés au contexte ivoirien. Réponds en français.
 
 PROFIL :
@@ -413,57 +391,130 @@ MISSION : Donne 4 à 5 conseils financiers personnalisés, précis et actionnabl
 
 Réponds uniquement en français."""
 
+
+def _call_groq(prompt, model=None):
+    """Appelle l'API Groq (OpenAI-compatible). Retourne le texte généré."""
+    model = model or GROQ_MODEL_DEFAULT
+    # Groq accepte uniquement ses propres modèles — on mappe les noms Ollama
+    groq_models = {
+        "llama3": "llama3-8b-8192",
+        "llama3:8b": "llama3-8b-8192",
+        "llama3:70b": "llama3-70b-8192",
+        "mistral": "mixtral-8x7b-32768",
+        "gemma2": "gemma2-9b-it",
+        "gemma": "gemma2-9b-it",
+    }
+    groq_model = groq_models.get(model, GROQ_MODEL_DEFAULT)
+
+    payload = json.dumps({
+        "model": groq_model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+        "max_tokens": 700,
+    }).encode("utf-8")
+
+    req = _urllib_req.Request(
+        GROQ_API_URL,
+        data=payload,
+        headers={
+            "Content-Type":  "application/json",
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+        },
+        method="POST"
+    )
+    with _urllib_req.urlopen(req, timeout=60) as resp:
+        result = json.loads(resp.read().decode("utf-8"))
+        return result["choices"][0]["message"]["content"].strip(), groq_model
+
+
+def _call_ollama(prompt, model="llama3"):
+    """Appelle Ollama en local."""
+    payload = json.dumps({
+        "model":   model,
+        "prompt":  prompt,
+        "stream":  False,
+        "options": {"temperature": 0.7, "num_predict": 700}
+    }).encode("utf-8")
+
+    req = _urllib_req.Request(
+        f"{OLLAMA_URL}/api/generate",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+    with _urllib_req.urlopen(req, timeout=120) as resp:
+        result = json.loads(resp.read().decode("utf-8"))
+        return result.get("response", "").strip(), model
+
+
+@app.route("/api/conseil-ia", methods=["POST"])
+@require_auth
+def conseil_ia():
+    """Conseil IA — utilise Groq en prod, Ollama en local."""
+    body = request.get_json() or {}
+
+    profile    = body.get("profile",    {})
+    revenus    = body.get("revenus",    0)
+    depenses   = body.get("depenses",   0)
+    solde      = body.get("solde",      0)
+    epargne    = body.get("epargne",    0)
+    patrimoine = body.get("patrimoine", 0)
+    objectifs  = body.get("objectifs",  [])
+    actifs     = body.get("actifs",     [])
+    mois       = body.get("mois",       "")
+    model      = body.get("model",      "llama3")
+
+    nom      = profile.get("nom",           "l'utilisateur")
+    revenu_m = profile.get("revenuMensuel", 0)
+    profil_r = profile.get("profilRisque",  "équilibré")
+
+    obj_txt   = ", ".join([f"{o.get('nom','?')} ({o.get('epargne',0):,.0f}/{o.get('cible',0):,.0f} FCFA)" for o in objectifs[:4]]) or "Aucun objectif"
+    actif_txt = ", ".join([f"{a.get('nom','?')} ({a.get('valeurActuelle',0):,.0f} FCFA)" for a in actifs[:5]]) or "Aucun actif"
+
+    prompt = _build_prompt(nom, revenu_m, profil_r, mois, revenus, depenses, epargne, solde, patrimoine, actif_txt, obj_txt)
+
     try:
-        payload = json.dumps({
-            "model":   model,
-            "prompt":  prompt,
-            "stream":  False,
-            "options": {"temperature": 0.7, "num_predict": 700}
-        }).encode("utf-8")
+        if USE_GROQ:
+            conseil, used_model = _call_groq(prompt, model)
+        else:
+            conseil, used_model = _call_ollama(prompt, model)
 
-        req = _urllib_req.Request(
-            f"{OLLAMA_URL}/api/generate",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with _urllib_req.urlopen(req, timeout=120) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-            conseil = result.get("response", "").strip()
-
-        return jsonify({"ok": True, "conseil": conseil, "model": model}), 200
+        return jsonify({"ok": True, "conseil": conseil, "model": used_model, "engine": "groq" if USE_GROQ else "ollama"}), 200
 
     except Exception as e:
         err = str(e)
+        engine = "Groq" if USE_GROQ else "Ollama"
         if "Connection refused" in err or "111" in err:
-            return jsonify({
-                "ok":    False,
-                "error": f"Ollama n'est pas joignable sur {OLLAMA_URL}. Vérifiez qu'il tourne (ollama serve)."
-            }), 503
-        return jsonify({"ok": False, "conseil": "", "error": err}), 500
+            return jsonify({"ok": False, "error": f"{engine} inaccessible. Vérifiez la configuration."}), 503
+        if "401" in err or "invalid_api_key" in err.lower():
+                        return jsonify({"ok": False, "error": "Cle GROQ_API_KEY invalide. Verifiez vos variables d'environnement sur Render."}), 401
+        return jsonify({"ok": False, "conseil": "", "error": f"[{engine}] {err}"}), 500
 
 
-# ─── Ollama : liste des modèles disponibles ────────────────────────────────────
+# ─── Liste des modèles disponibles ───────────────────────────────────────────────────────────────────────────────
 @app.route("/api/ollama-models", methods=["GET"])
 @require_auth
 def ollama_models():
+    if USE_GROQ:
+        models = ["llama3-8b-8192", "llama3-70b-8192", "mixtral-8x7b-32768", "gemma2-9b-it"]
+        return jsonify({"ok": True, "models": models, "engine": "groq"}), 200
     try:
         req = _urllib_req.Request(f"{OLLAMA_URL}/api/tags", method="GET")
         with _urllib_req.urlopen(req, timeout=8) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             models = [m["name"] for m in data.get("models", [])]
-        return jsonify({"ok": True, "models": models}), 200
+        return jsonify({"ok": True, "models": models, "engine": "ollama"}), 200
     except Exception as e:
         return jsonify({"ok": False, "models": [], "error": str(e)}), 200
 
 
-# ─── Health check ──────────────────────────────────────────────────────────────
+# ─── Health check ────────────────────────────────────────────────────────────────────────────────────────
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok"}), 200
+    return jsonify({"status": "ok", "engine": "groq" if USE_GROQ else "ollama"}), 200
 
 
-# ─── Servir index.html pour toutes les routes non-API ─────────────────────────
+# ─── Servir index.html ────────────────────────────────────────────────────────────────────────
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_frontend(path):
@@ -472,10 +523,9 @@ def serve_frontend(path):
     return send_from_directory(_BASE_DIR, "index.html")
 
 
-# ─── Point d'entrée local ──────────────────────────────────────────────────────
+# ─── Point d'entree local ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    debug = os.environ.get("FLASK_ENV", "production") == "development"
-    print(f"🚀 Serveur démarré sur http://localhost:{port}")
-    print(f"🤖 Ollama URL : {OLLAMA_URL}")
+    debug = FLASK_ENV == "development"
+    print(f"Serveur demarre sur http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=debug)
