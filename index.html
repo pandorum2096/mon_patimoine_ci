@@ -4,48 +4,199 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Mon Patrimoine CI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/prop-types@15.8.1/prop-types.js"></script>
   <script src="https://unpkg.com/recharts@2.10.4/umd/Recharts.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
   <style>
+    /* ══════════════════════════════════════════════════════════
+       FUTURISTIC THEME — Mon Patrimoine CI
+       Design language: dark space · neon cyan · glass morphism
+    ══════════════════════════════════════════════════════════ */
     :root {
-      --bg:#0A0F1A; --card:#111827; --surface:#1F2937; --border:#374151;
-      --text:#F9FAFB; --muted:#9CA3AF; --gold:#C9A84C;
-      --red:#EF4444; --green:#10B981; --blue:#3B82F6;
+      --bg:      #050913;
+      --card:    #0B1628;
+      --surface: #0F1E38;
+      --border:  #1A3050;
+      --text:    #D8E8FF;
+      --muted:   #4A6880;
+      --gold:    #00C8FF;   /* primary: electric cyan */
+      --red:     #FF3B6B;
+      --green:   #00E87A;
+      --blue:    #4080FF;
+      --accent:  #7B5FFF;   /* secondary: electric purple */
+      --cream:   #1A2A4A;
+      --cyan:    #00C8FF;
+      --purple:  #7B5FFF;
     }
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { background:var(--bg); color:var(--text); font-family:'Palatino Linotype',Georgia,serif; }
-    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-    ::-webkit-scrollbar{width:6px;height:6px}
-    ::-webkit-scrollbar-track{background:var(--bg)}
-    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
-    input,button,select{font-family:'Palatino Linotype',Georgia,serif}
-    input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
-    a{color:var(--blue)}
-    #root{min-height:100vh}
 
-    /* ─── RESPONSIVE MOBILE ─────────────────────────────────── */
-    /* Empêche le zoom auto sur les inputs iOS */
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+      /* Subtle grid texture */
+      background-image:
+        linear-gradient(rgba(0,200,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,200,255,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      background-attachment: fixed;
+    }
+
+    /* ─── KEYFRAMES ──────────────────────────────────────────── */
+    @keyframes fadeIn    { from{opacity:0;transform:translateY(8px)}   to{opacity:1;transform:translateY(0)} }
+    @keyframes slideUp   { from{opacity:0;transform:translateY(22px)}  to{opacity:1;transform:translateY(0)} }
+    @keyframes scaleIn   { from{opacity:0;transform:scale(0.93)}       to{opacity:1;transform:scale(1)} }
+    @keyframes numPop    { 0%{opacity:0;transform:translateY(8px) scale(0.9)} 60%{transform:translateY(-2px) scale(1.04)} 100%{opacity:1;transform:none} }
+    @keyframes tabEnter  { from{opacity:0;transform:translateY(16px)}  to{opacity:1;transform:translateY(0)} }
+    @keyframes neonGlow  { 0%,100%{text-shadow:0 0 4px var(--cyan),0 0 10px rgba(0,200,255,0.3)} 50%{text-shadow:0 0 10px var(--cyan),0 0 28px rgba(0,200,255,0.55),0 0 50px rgba(0,200,255,0.2)} }
+    @keyframes heroAura  { 0%,100%{box-shadow:0 0 60px rgba(0,200,255,0.06),inset 0 0 60px rgba(0,200,255,0.02)} 50%{box-shadow:0 0 80px rgba(0,200,255,0.12),inset 0 0 80px rgba(0,200,255,0.04)} }
+    @keyframes scanLine  { 0%{transform:translateY(-100%);opacity:0} 8%{opacity:0.5} 92%{opacity:0.5} 100%{transform:translateY(100%);opacity:0} }
+    @keyframes borderFlow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+    @keyframes hologram  { 0%,100%{opacity:1} 91%{opacity:1} 92%{opacity:0.3} 93%{opacity:1} 96%{opacity:0.6} 97%{opacity:1} }
+    @keyframes shimmer   { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    @keyframes spinIn    { from{stroke-dashoffset:339.3} }
+
+    /* ─── GLASS MORPHISM ─────────────────────────────────────── */
+    .glass {
+      background: rgba(11, 22, 40, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 200, 255, 0.1);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+      transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.22s ease;
+    }
+    .glass:hover {
+      border-color: rgba(0, 200, 255, 0.22);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,200,255,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
+      transform: translateY(-2px);
+    }
+
+    /* ─── BUTTONS ────────────────────────────────────────────── */
+    button {
+      font-family: 'Space Grotesk', sans-serif;
+      transition: all 0.18s cubic-bezier(.4,0,.2,1);
+      position: relative; overflow: hidden;
+      cursor: pointer;
+    }
+    button:active { transform: scale(0.96) !important; }
+    .btn-cyber {
+      background: transparent;
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      border-radius: 4px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 600;
+      box-shadow: 0 0 10px rgba(0,200,255,0.15), inset 0 0 10px rgba(0,200,255,0.04);
+    }
+    .btn-cyber:hover {
+      background: rgba(0,200,255,0.1);
+      box-shadow: 0 0 20px rgba(0,200,255,0.35), inset 0 0 20px rgba(0,200,255,0.08);
+    }
+    .btn-cyber-solid {
+      background: linear-gradient(135deg, var(--cyan) 0%, var(--blue) 100%);
+      border: none;
+      color: #050913;
+      border-radius: 4px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      box-shadow: 0 4px 20px rgba(0,200,255,0.3);
+    }
+    .btn-cyber-solid:hover {
+      box-shadow: 0 6px 28px rgba(0,200,255,0.5);
+      transform: translateY(-1px);
+    }
+
+    /* ─── NAV ────────────────────────────────────────────────── */
+    .nav-tab {
+      font-family: 'Space Grotesk', sans-serif;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 10px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      padding: 8px 14px;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s, text-shadow 0.2s;
+      white-space: nowrap;
+    }
+    .nav-tab.active {
+      color: var(--cyan);
+      border-bottom-color: var(--cyan);
+      text-shadow: 0 0 10px rgba(0,200,255,0.6);
+    }
+    .nav-tab:hover:not(.active) { color: var(--text); }
+
+    /* ─── PROGRESS BAR ───────────────────────────────────────── */
+    .pb-fill { transition: width 1s cubic-bezier(.4,0,.2,1); }
+    .pb-glow { box-shadow: 0 0 8px currentColor; }
+
+    /* ─── ANIMATIONS UTILITAIRES ─────────────────────────────── */
+    .num-anim  { animation: numPop 0.45s cubic-bezier(.4,0,.2,1) both; }
+    .neon-text { animation: neonGlow 3s ease-in-out infinite; }
+    .tab-content { animation: tabEnter 0.3s cubic-bezier(.4,0,.2,1) both; }
+    .stagger-1 { animation-delay: 0s !important; }
+    .stagger-2 { animation-delay: 0.08s !important; }
+    .stagger-3 { animation-delay: 0.16s !important; }
+    .stagger-4 { animation-delay: 0.24s !important; }
+    circle.score-ring { transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
+    .shimmer-line {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      background-size: 200% 100%;
+      animation: shimmer 2.5s ease-in-out infinite;
+    }
+
+    /* ─── TYPOGRAPHY ─────────────────────────────────────────── */
+    .mono { font-family: 'Space Mono', 'Courier New', monospace; }
+    .label-cyber {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ─── INPUTS ─────────────────────────────────────────────── */
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--cyan) !important;
+      box-shadow: 0 0 0 1px rgba(0,200,255,0.3), 0 0 12px rgba(0,200,255,0.1) !important;
+    }
+
+    /* ─── SCROLLBAR ──────────────────────────────────────────── */
+    ::-webkit-scrollbar { width:4px; height:4px }
+    ::-webkit-scrollbar-track { background: transparent }
+    ::-webkit-scrollbar-thumb { background: rgba(0,200,255,0.2); border-radius:99px }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,200,255,0.4); }
+
+    input,button,select { font-family: 'Space Grotesk', sans-serif; }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none }
+    a { color: var(--cyan); }
+    #root { min-height:100vh }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────────── */
     input, select, textarea { font-size: 16px !important; }
     @media (max-width: 640px) {
-      /* Taille de police globale */
-      body { font-size: 14px; }
-      /* Inputs visuellement plus petits malgré font-size:16px pour iOS */
-      input, select, textarea {
-        padding: 9px 10px !important;
-      }
-      /* Bouton de suppression toujours visible sur tactile */
+      body { font-size: 14px; background-size: 32px 32px; }
+      input, select, textarea { padding: 9px 10px !important; }
       .rw .dl { opacity: 1 !important; }
-      /* Scrollbar cachée sur mobile */
       ::-webkit-scrollbar { display: none; }
-      /* Charts — hauteur réduite */
-      .chart-sm { height: 160px !important; }
-      /* Modales — bottom-sheet sur mobile */
       .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
       .modal-box {
-        border-radius: 20px 20px 0 0 !important;
+        border-radius: 16px 16px 0 0 !important;
         max-height: 92vh !important;
         padding: 20px 16px !important;
         width: 100% !important;
@@ -55,7 +206,7 @@
   </style>
 </head>
 <body>
-<div id="root"><div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#C9A84C;font-family:Georgia;font-size:18px;">⏳ Chargement...</div></div>
+<div id="root"><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#050913;font-family:'Space Mono',monospace;gap:16px;"><div style="width:40px;height:40px;border:2px solid rgba(0,200,255,0.2);border-top-color:#00C8FF;border-radius:50%;animation:spin 0.8s linear infinite;"></div><div style="color:#00C8FF;font-size:11px;letter-spacing:0.2em;opacity:0.7;">INITIALIZING</div><style>@keyframes spin{to{transform:rotate(360deg)}}</style></div></div>
 <script type="text/babel">
 const {
   LineChart, Line, AreaChart, Area, BarChart, Bar,
@@ -364,6 +515,36 @@ function getPatrimoineNet(data, moisActif) {
   return actifs + epargneObj + solde;
 }
 
+// ─── ANIMATIONS HOOKS ────────────────────────────────────────────────────────────
+function useCountUp(target, duration = 900) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!target || isNaN(target)) { setVal(target || 0); return; }
+    const absTarget = Math.abs(target);
+    const sign = target < 0 ? -1 : 1;
+    const start = performance.now();
+    let raf;
+    const step = (now) => {
+      const t = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setVal(sign * Math.round(eased * absTarget));
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return val;
+}
+
+// Clé unique pour déclencher l'animation num à chaque changement de valeur
+let _numAnimKey = 0;
+function AnimatedNum({ value, style, className = "" }) {
+  const [key, setKey] = useState(0);
+  const animated = useCountUp(value);
+  useEffect(() => { setKey(k => k + 1); }, [value]);
+  return <span key={key} className={"num-anim " + className} style={style}>{fmt(animated)}</span>;
+}
+
 // ─── RESPONSIVE ─────────────────────────────────────────────────────────────────
 const MobileContext = React.createContext(false);
 function useMobile() { return React.useContext(MobileContext); }
@@ -380,28 +561,36 @@ function useIsMobile() {
 // ─── THÈME ──────────────────────────────────────────────────────────────────────
 const THEMES = {
   dark: {
-    "--bg": "#0A0F1A",
-    "--card": "#111827",
-    "--surface": "#1F2937",
-    "--border": "#374151",
-    "--text": "#F9FAFB",
-    "--muted": "#9CA3AF",
-    "--gold": "#C9A84C",
-    "--red": "#EF4444",
-    "--green": "#10B981",
-    "--blue": "#3B82F6",
+    "--bg":      "#050913",
+    "--card":    "#0B1628",
+    "--surface": "#0F1E38",
+    "--border":  "#1A3050",
+    "--text":    "#D8E8FF",
+    "--muted":   "#4A6880",
+    "--gold":    "#00C8FF",   // primary: electric cyan
+    "--red":     "#FF3B6B",
+    "--green":   "#00E87A",
+    "--blue":    "#4080FF",
+    "--accent":  "#7B5FFF",   // secondary: electric purple
+    "--cream":   "#1A2A4A",
+    "--cyan":    "#00C8FF",
+    "--purple":  "#7B5FFF",
   },
   light: {
-    "--bg": "#F3F4F6",
-    "--card": "#FFFFFF",
-    "--surface": "#E5E7EB",
-    "--border": "#D1D5DB",
-    "--text": "#111827",
-    "--muted": "#6B7280",
-    "--gold": "#B8860B",
-    "--red": "#DC2626",
-    "--green": "#059669",
-    "--blue": "#2563EB",
+    "--bg":      "#EEF4FF",
+    "--card":    "#FFFFFF",
+    "--surface": "#E4EDFF",
+    "--border":  "#C0D4F0",
+    "--text":    "#0A1428",
+    "--muted":   "#5070A0",
+    "--gold":    "#0090CC",   // deeper cyan for light
+    "--red":     "#D02050",
+    "--green":   "#008A50",
+    "--blue":    "#2060D0",
+    "--accent":  "#5030C0",
+    "--cream":   "#D8E8FF",
+    "--cyan":    "#0090CC",
+    "--purple":  "#5030C0",
   }
 };
 
@@ -412,30 +601,73 @@ function applyTheme(mode) {
 // ─── STYLES GLOBAUX ─────────────────────────────────────────────────────────────
 const G = {
   card: {
-    background: "var(--card)", border: "1px solid var(--border)",
-    borderRadius: 12, padding: 20, marginBottom: 16,
+    background: "rgba(11, 22, 40, 0.8)",
+    border: "1px solid rgba(0,200,255,0.1)",
+    borderRadius: 8, padding: 18, marginBottom: 14,
+    animation: "slideUp 0.35s ease both",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)",
+    transition: "border-color 0.25s ease, box-shadow 0.25s ease, transform 0.22s ease",
+  },
+  section: {
+    padding: "18px 0", marginBottom: 14,
+    borderBottom: "1px solid rgba(0,200,255,0.08)",
     animation: "fadeIn 0.35s ease",
   },
+  cardAccent: {
+    background: "rgba(11, 22, 40, 0.8)",
+    borderRadius: 8, padding: 18, marginBottom: 14,
+    border: "1px solid rgba(0,200,255,0.18)",
+    boxShadow: "0 0 20px rgba(0,200,255,0.06), inset 0 1px 0 rgba(255,255,255,0.03)",
+    backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+    animation: "slideUp 0.35s ease both",
+  },
+  cardCI: {
+    background: "rgba(11, 22, 40, 0.8)",
+    borderRadius: 8, padding: 18, marginBottom: 14,
+    border: "1px solid rgba(123,95,255,0.2)",
+    boxShadow: "0 0 20px rgba(123,95,255,0.06), inset 0 1px 0 rgba(255,255,255,0.03)",
+    backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+    animation: "slideUp 0.35s ease both",
+  },
   input: {
-    background: "var(--surface)", border: "1px solid var(--border)",
-    borderRadius: 8, padding: "10px 14px", color: "var(--text)",
+    background: "rgba(15, 30, 56, 0.9)",
+    border: "1px solid rgba(0,200,255,0.15)",
+    borderRadius: 4, padding: "10px 14px", color: "var(--text)",
     fontSize: 14, width: "100%", outline: "none",
-    fontFamily: "Palatino Linotype, Georgia, serif",
+    fontFamily: "'Space Grotesk', sans-serif",
+    transition: "border-color 0.2s, box-shadow 0.2s",
   },
   btn: (color = "var(--gold)") => ({
-    background: color, border: "none", borderRadius: 8,
-    padding: "10px 18px", color: color === "var(--gold)" ? "#0A0F1A" : "#fff",
-    fontWeight: 700, cursor: "pointer", fontSize: 14,
-    fontFamily: "Palatino Linotype, Georgia, serif",
-    transition: "opacity 0.2s",
+    background: color === "var(--gold)" || color === "var(--surface)"
+      ? (color === "var(--surface)" ? "rgba(15,30,56,0.9)" : "transparent")
+      : color,
+    border: color === "var(--surface)" ? "1px solid rgba(0,200,255,0.15)" : `1px solid ${color}`,
+    borderRadius: 4,
+    padding: "10px 20px",
+    color: color === "var(--surface)" ? "var(--muted)" : (color === "var(--gold)" ? "var(--cyan)" : "#fff"),
+    fontWeight: 600, cursor: "pointer", fontSize: 13,
+    fontFamily: "'Space Grotesk', sans-serif",
+    letterSpacing: "0.06em", textTransform: "uppercase",
+    boxShadow: color === "var(--gold)" ? "0 0 12px rgba(0,200,255,0.2)" : "none",
+    transition: "all 0.2s ease",
   }),
   btnSm: (color = "var(--gold)") => ({
-    background: color, border: "none", borderRadius: 6,
-    padding: "6px 12px", color: color === "var(--gold)" ? "#0A0F1A" : "#fff",
-    fontWeight: 700, cursor: "pointer", fontSize: 12,
-    fontFamily: "Palatino Linotype, Georgia, serif",
+    background: color === "var(--surface)" ? "rgba(15,30,56,0.9)" : "transparent",
+    border: color === "var(--surface)" ? "1px solid rgba(0,200,255,0.1)" : `1px solid ${color}`,
+    borderRadius: 4,
+    padding: "5px 12px",
+    color: color === "var(--surface)" ? "var(--muted)" : (color === "var(--gold)" ? "var(--cyan)" : color),
+    fontWeight: 600, cursor: "pointer", fontSize: 11,
+    fontFamily: "'Space Grotesk', sans-serif",
+    letterSpacing: "0.06em", textTransform: "uppercase",
   }),
-  label: { color: "var(--muted)", fontSize: 12, marginBottom: 4, display: "block" },
+  label: {
+    color: "var(--muted)", fontSize: 10, marginBottom: 6, display: "block",
+    letterSpacing: "0.1em", textTransform: "uppercase",
+    fontFamily: "'Space Grotesk', sans-serif",
+  },
   row: { display: "flex", gap: 12, alignItems: "center" },
   grid2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
   grid4: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 },
@@ -443,35 +675,62 @@ const G = {
 
 // ─── COMPOSANTS UTILITAIRES ─────────────────────────────────────────────────────
 
-function ProgressBar({ value, max, color = "var(--gold)", height = 8 }) {
+function ProgressBar({ value, max, color = "var(--gold)", height = 6 }) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setReady(true), 80); return () => clearTimeout(t); }, []);
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
-    <div style={{ background: "var(--surface)", borderRadius: 99, height, overflow: "hidden" }}>
-      <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.5s" }} />
+    <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: 2, height, overflow: "hidden", position:"relative" }}>
+      <div className="pb-fill" style={{
+        width: ready ? `${pct}%` : "0%", height: "100%",
+        background: `linear-gradient(90deg, ${color}, ${color}99)`,
+        borderRadius: 2,
+        boxShadow: `0 0 8px ${color}66`,
+      }} />
     </div>
   );
 }
 
 function KpiCard({ label, value, sub, color = "var(--gold)", icon }) {
   const isMobile = useMobile();
+  const [key, setKey] = useState(0);
+  useEffect(() => { setKey(k => k + 1); }, [value]);
   return (
-    <div style={{ ...G.card, textAlign: "center", padding: isMobile ? 10 : 16 }}>
-      {icon && <div style={{ fontSize: isMobile ? 18 : 24, marginBottom: isMobile ? 2 : 6 }}>{icon}</div>}
-      <div style={{ color: "var(--muted)", fontSize: isMobile ? 10 : 12, marginBottom: 2 }}>{label}</div>
-      <div style={{ color, fontSize: isMobile ? 14 : 20, fontWeight: 800, lineHeight: 1.2 }}>{value}</div>
-      {sub && <div style={{ color: "var(--muted)", fontSize: isMobile ? 9 : 11, marginTop: 2 }}>{sub}</div>}
+    <div className="glass" style={{
+      borderRadius: 8, padding: isMobile ? "12px 14px" : "16px 18px",
+      marginBottom: 0, position: "relative", overflow: "hidden",
+      animation: "slideUp 0.38s ease both",
+    }}>
+      {/* Top accent line */}
+      <div style={{ position:"absolute", top:0, left:0, right:0, height:1, background:`linear-gradient(90deg, ${color}, transparent)` }} />
+      <div className="label-cyber" style={{ marginBottom: 8 }}>{label}</div>
+      <div key={key} className="num-anim mono" style={{ color, fontSize: isMobile ? 17 : 24, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.5px" }}>{value}</div>
+      {sub && <div style={{ color: "var(--muted)", fontSize: isMobile ? 9 : 10, marginTop: 4, fontFamily:"'Space Grotesk',sans-serif", letterSpacing:"0.06em" }}>{sub}</div>}
+    </div>
+  );
+}
+
+function SectionHeader({ title, color = "var(--gold)" }) {
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+      <span className="mono" style={{ color, fontSize:10, opacity:0.6, letterSpacing:0 }}>{"///"}</span>
+      <span style={{ color:"var(--text)", fontSize:11, fontWeight:600, letterSpacing:"0.12em", textTransform:"uppercase", fontFamily:"'Space Grotesk',sans-serif" }}>{title}</span>
+      <div style={{ flex:1, height:"1px", background:`linear-gradient(90deg, ${color}44, transparent)` }} />
     </div>
   );
 }
 
 function Alert({ type = "warn", children }) {
-  const colors = { warn: "#F59E0B", error: "var(--red)", success: "var(--green)", info: "var(--blue)" };
-  const bg = { warn: "#FEF3C7", error: "#FEE2E2", success: "#D1FAE5", info: "#DBEAFE" };
+  const colors = { warn: "#F5A623", error: "var(--red)", success: "var(--green)", info: "var(--cyan)" };
   return (
     <div style={{
-      background: "transparent", border: `1px solid ${colors[type]}`,
-      borderRadius: 8, padding: "10px 14px", marginBottom: 12,
-      color: colors[type], fontSize: 13,
+      background: `rgba(${type==="error"?"255,59,107":type==="success"?"0,232,122":type==="info"?"0,200,255":"245,166,35"}, 0.06)`,
+      border: `1px solid ${colors[type]}44`,
+      borderLeft: `2px solid ${colors[type]}`,
+      borderRadius: 4, padding: "10px 14px", marginBottom: 12,
+      color: colors[type], fontSize: 12,
+      fontFamily:"'Space Grotesk',sans-serif", letterSpacing:"0.02em",
+      animation:"slideUp 0.3s ease both",
     }}>
       {children}
     </div>
@@ -482,7 +741,7 @@ function Modal({ title, children, onClose }) {
   const isMobile = useMobile();
   return (
     <div className="modal-overlay" style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+      position: "fixed", inset: 0, background: "rgba(0,5,15,0.85)", backdropFilter:"blur(4px)",
       display: "flex",
       alignItems: isMobile ? "flex-end" : "center",
       justifyContent: "center",
@@ -490,23 +749,28 @@ function Modal({ title, children, onClose }) {
       padding: isMobile ? 0 : 20,
     }}>
       <div className="modal-box" style={{
-        background: "var(--card)",
-        borderRadius: isMobile ? "20px 20px 0 0" : 16,
+        background: "rgba(11,22,40,0.95)",
+        backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+        borderRadius: isMobile ? "16px 16px 0 0" : 8,
         padding: isMobile ? "20px 16px" : 28,
         maxWidth: isMobile ? "100%" : 480,
         width: "100%",
-        border: "1px solid var(--border)",
+        border: "1px solid rgba(0,200,255,0.15)",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)",
         maxHeight: isMobile ? "92vh" : "80vh",
         overflowY: "auto",
+        animation: "scaleIn 0.25s ease both",
       }}>
+        {/* Top accent */}
+        <div style={{ position:"absolute", top:0, left:0, right:0, height:1, background:"linear-gradient(90deg, transparent, var(--cyan), transparent)", borderRadius:"16px 16px 0 0" }} />
         {/* Poignée visuelle sur mobile */}
         {isMobile && (
-          <div style={{ width: 40, height: 4, background: "var(--border)", borderRadius: 99, margin: "0 auto 16px" }} />
+          <div style={{ width: 36, height: 3, background: "rgba(0,200,255,0.2)", borderRadius: 99, margin: "0 auto 16px" }} />
         )}
         <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 16 }}>
-          <h3 style={{ color: "var(--text)", margin: 0, fontSize: isMobile ? 16 : 18 }}>{title}</h3>
+          <h3 className="mono" style={{ color: "var(--cyan)", margin: 0, fontSize: isMobile ? 14 : 16, letterSpacing:"0.06em" }}>{title}</h3>
           {onClose && (
-            <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+            <button onClick={onClose} style={{ background: "rgba(255,59,107,0.08)", border: "1px solid rgba(255,59,107,0.2)", borderRadius:4, color: "var(--red)", fontSize: 16, width:28, height:28, display:"flex", alignItems:"center", justifyContent:"center" }}>×</button>
           )}
         </div>
         {children}
@@ -553,26 +817,52 @@ function AuthScreen({ onAuth }) {
     setLoading(false);
   };
 
-  const s = {
-    wrap: { minHeight:"100vh", background:"var(--bg)", display:"flex", alignItems:"center", justifyContent:"center", padding:"16px 12px", fontFamily:"Palatino Linotype, Georgia, serif" },
-    box: { background:"var(--card)", borderRadius:20, padding:"28px 20px", maxWidth:420, width:"100%", border:"1px solid var(--border)" },
-    title: { color:"var(--gold)", fontSize:24, fontWeight:900, marginBottom:6, textAlign:"center" },
-    sub: { color:"var(--muted)", fontSize:12, marginBottom:20, textAlign:"center" },
-    tabs: { display:"flex", gap:8, marginBottom:20 },
-  };
-
   return (
-    <div style={s.wrap}>
-      <div style={s.box}>
-        <div style={s.title}>💰 Mon Patrimoine CI</div>
-        <div style={s.sub}>Gérez vos finances en FCFA · Gratuit & Open Source</div>
+    <div style={{
+      minHeight:"100vh",
+      background:"var(--bg)",
+      backgroundImage:"linear-gradient(rgba(0,200,255,0.03) 1px, transparent 1px),linear-gradient(90deg,rgba(0,200,255,0.03) 1px, transparent 1px)",
+      backgroundSize:"48px 48px",
+      display:"flex", alignItems:"center", justifyContent:"center", padding:"16px 12px",
+    }}>
+      {/* Glow orbs */}
+      <div style={{ position:"fixed", top:"10%", right:"15%", width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle, rgba(0,200,255,0.06), transparent 70%)", pointerEvents:"none" }} />
+      <div style={{ position:"fixed", bottom:"10%", left:"10%", width:300, height:300, borderRadius:"50%", background:"radial-gradient(circle, rgba(123,95,255,0.06), transparent 70%)", pointerEvents:"none" }} />
 
-        <div style={s.tabs}>
-          {[["login","Connexion"],["register","Créer un compte"]].map(([m,l]) => (
-            <button key={m} onClick={() => { setMode(m); setError(""); }}
-              style={{ ...G.btn(mode===m?"var(--gold)":"var(--surface)"), flex:1, color: mode===m?"#0A0F1A":"var(--text)" }}>
-              {l}
-            </button>
+      <div style={{
+        background:"rgba(11,22,40,0.85)", backdropFilter:"blur(20px)",
+        WebkitBackdropFilter:"blur(20px)",
+        borderRadius:8, padding:"36px 28px", maxWidth:420, width:"100%",
+        border:"1px solid rgba(0,200,255,0.12)",
+        boxShadow:"0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
+        animation:"scaleIn 0.4s ease both",
+        position:"relative", overflow:"hidden",
+      }}>
+        {/* Top border glow */}
+        <div style={{ position:"absolute", top:0, left:0, right:0, height:1, background:"linear-gradient(90deg, transparent, var(--cyan), var(--accent), transparent)" }} />
+
+        {/* Logo */}
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginBottom:8 }}>
+            <div style={{ width:8, height:8, background:"var(--cyan)", borderRadius:"50%", boxShadow:"0 0 12px var(--cyan)", animation:"pulse 2s ease-in-out infinite" }} />
+            <span className="mono" style={{ fontSize:20, fontWeight:700, color:"var(--cyan)", letterSpacing:"0.1em" }}>PATRIMOINE</span>
+            <span className="mono" style={{ fontSize:16, color:"var(--muted)", letterSpacing:"0.08em" }}>/CI</span>
+          </div>
+          <div className="label-cyber" style={{ fontSize:9 }}>Financial Intelligence Platform</div>
+        </div>
+
+        {/* Mode tabs */}
+        <div style={{ display:"flex", gap:0, marginBottom:24, background:"rgba(0,0,0,0.3)", borderRadius:4, padding:2, border:"1px solid rgba(0,200,255,0.1)" }}>
+          {[["login","CONNEXION"],["register","CRÉER UN COMPTE"]].map(([m,l]) => (
+            <button key={m} onClick={() => { setMode(m); setError(""); }} style={{
+              flex:1, padding:"9px 8px",
+              background: mode===m ? "rgba(0,200,255,0.12)" : "transparent",
+              border: mode===m ? "1px solid rgba(0,200,255,0.25)" : "1px solid transparent",
+              borderRadius:3, color: mode===m ? "var(--cyan)" : "var(--muted)",
+              fontFamily:"'Space Grotesk',sans-serif", fontSize:10,
+              fontWeight:600, letterSpacing:"0.1em",
+              boxShadow: mode===m ? "0 0 12px rgba(0,200,255,0.15)" : "none",
+            }}>{l}</button>
           ))}
         </div>
 
@@ -585,17 +875,26 @@ function AuthScreen({ onAuth }) {
         <label style={G.label}>Email</label>
         <input style={{ ...G.input, marginBottom:12 }} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="votre@email.com" />
         <label style={G.label}>Mot de passe {mode==="register" && "(6 caractères min)"}</label>
-        <input style={{ ...G.input, marginBottom:16 }} type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"
+        <input style={{ ...G.input, marginBottom:20 }} type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••"
           onKeyDown={e=>e.key==="Enter"&&submit()} />
 
         {error && <Alert type="error">{error}</Alert>}
 
-        <button style={{ ...G.btn(), width:"100%", opacity: loading?0.6:1 }} onClick={submit} disabled={loading}>
-          {loading ? "⏳ Chargement..." : mode==="login" ? "Se connecter" : "Créer mon compte"}
+        <button onClick={submit} disabled={loading} style={{
+          width:"100%", padding:"12px",
+          background: loading ? "rgba(0,200,255,0.05)" : "linear-gradient(135deg, var(--cyan), var(--blue))",
+          border: loading ? "1px solid rgba(0,200,255,0.2)" : "none",
+          borderRadius:4, color: loading ? "var(--muted)" : "#050913",
+          fontFamily:"'Space Grotesk',sans-serif", fontWeight:700, fontSize:13,
+          letterSpacing:"0.1em", textTransform:"uppercase",
+          boxShadow: loading ? "none" : "0 4px 20px rgba(0,200,255,0.35)",
+          cursor: loading ? "not-allowed" : "pointer",
+        }}>
+          {loading ? "AUTHENTIFICATION…" : mode==="login" ? "ACCÉDER →" : "CRÉER MON COMPTE →"}
         </button>
 
-        <div style={{ textAlign:"center", marginTop:16, fontSize:12, color:"var(--muted)" }}>
-          🔒 Vos données sont privées et chiffrées · Open Source sur GitHub
+        <div className="label-cyber" style={{ textAlign:"center", marginTop:20, fontSize:8 }}>
+          Chiffrement bout-en-bout · Données privées
         </div>
       </div>
     </div>
@@ -615,7 +914,7 @@ function Onboarding({ onDone }) {
     wrapper: {
       minHeight: "100vh", background: "var(--bg)",
       display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 20, fontFamily: "Palatino Linotype, Georgia, serif",
+      padding: 20, fontFamily: "'Space Grotesk', sans-serif",
     },
     box: {
       background: "var(--card)", borderRadius: 20, padding: 36,
@@ -728,6 +1027,8 @@ function TabAccueil({ data, mois }) {
   const revenus = periode.revenus.reduce((a, r) => a + r.montant, 0);
   const depenses = periode.depenses.reduce((a, d) => a + d.montant, 0);
   const solde = getSolde(data, mois);
+  const soldePos = solde >= 0;
+  const soldeCouleur = soldePos ? "var(--gold)" : "var(--red)";
   const patrimoineNet = getPatrimoineNet(data, mois);
 
   const investiMois = data.transactions
@@ -747,12 +1048,51 @@ function TabAccueil({ data, mois }) {
 
   return (
     <div>
-      {/* Patrimoine net */}
-      <div style={{ ...G.card, textAlign: "center", borderColor: "var(--gold)", background: "linear-gradient(135deg, var(--card) 0%, var(--surface) 100%)" }}>
-        <div style={{ color: "var(--muted)", fontSize: isMobile ? 11 : 13 }}>Patrimoine Net Total</div>
-        <div style={{ color: "var(--gold)", fontSize: isMobile ? 24 : 34, fontWeight: 900, lineHeight: 1.2 }}>{fmt(patrimoineNet)} FCFA</div>
-        <div style={{ color: "var(--muted)", fontSize: isMobile ? 10 : 12, marginTop: 4 }}>Actifs + Objectifs + Solde disponible</div>
+      {/* ── HERO : FUTURISTIC WEALTH TERMINAL ── */}
+      <div style={{
+        background: "linear-gradient(135deg, #0A1628 0%, #050913 55%, #0A0520 100%)",
+        borderRadius: 10, padding: isMobile ? "24px 18px 20px" : "36px 32px 28px",
+        marginBottom: 16, position: "relative", overflow: "hidden",
+        border: "1px solid rgba(0,200,255,0.12)",
+        animation: "heroAura 5s ease-in-out infinite, scaleIn 0.4s ease both",
+        boxShadow: "0 0 60px rgba(0,200,255,0.06), inset 0 1px 0 rgba(255,255,255,0.04)",
+      }}>
+        {/* Grid lines background */}
+        <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(0,200,255,0.04) 1px, transparent 1px),linear-gradient(90deg,rgba(0,200,255,0.04) 1px, transparent 1px)", backgroundSize:"40px 40px", pointerEvents:"none" }} />
+        {/* Glow orb top-right */}
+        <div style={{ position:"absolute", right:-60, top:-60, width:240, height:240, borderRadius:"50%", background:"radial-gradient(circle, rgba(0,200,255,0.1), transparent 65%)", pointerEvents:"none" }} />
+        {/* Bottom-left orb purple */}
+        <div style={{ position:"absolute", left:-40, bottom:-40, width:180, height:180, borderRadius:"50%", background:"radial-gradient(circle, rgba(123,95,255,0.08), transparent 65%)", pointerEvents:"none" }} />
+        {/* Scan line */}
+        <div style={{ position:"absolute", left:0, right:0, height:1, background:"linear-gradient(90deg,transparent,rgba(0,200,255,0.5),transparent)", animation:"scanLine 4s linear infinite", pointerEvents:"none" }} />
+        {/* Top accent border */}
+        <div style={{ position:"absolute", top:0, left:0, right:0, height:1, background:"linear-gradient(90deg, transparent, var(--cyan), var(--accent), transparent)" }} />
+
+        <div style={{ position:"relative", zIndex:1 }}>
+          <div className="mono" style={{ color:"var(--muted)", fontSize:isMobile?9:10, letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:14 }}>
+            {"// NET WORTH · PATRIMOINE"}
+          </div>
+          <div className="neon-text" style={{ display:"flex", alignItems:"baseline", gap:isMobile?6:10, marginBottom:10 }}>
+            <AnimatedNum value={patrimoineNet} style={{ color:"var(--cyan)", fontSize:isMobile?34:56, fontWeight:700, lineHeight:1, letterSpacing:"-2px", fontFamily:"'Space Mono',monospace" }} />
+            <span className="mono" style={{ color:"var(--muted)", fontSize:isMobile?14:20, fontWeight:400 }}>FCFA</span>
+          </div>
+          <div style={{ display:"flex", gap:16, marginTop:6 }}>
+            {[
+              { label:"ACTIFS", val:fmt(data.patrimoine.reduce((a,p)=>a+p.valeurActuelle,0)), color:"var(--blue)" },
+              { label:"OBJECTIFS", val:fmt(data.objectifs.reduce((a,o)=>a+o.epargne,0)), color:"var(--accent)" },
+              { label:"LIQUIDITÉS", val:fmt(solde), color:soldeCouleur },
+            ].map(s => (
+              <div key={s.label}>
+                <div className="mono" style={{ fontSize:8, color:"var(--muted)", letterSpacing:"0.12em" }}>{s.label}</div>
+                <div className="mono" style={{ fontSize:isMobile?11:13, color:s.color, fontWeight:700 }}>{s.val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
+
+      {/* Shimmer séparateur */}
+      <div className="shimmer-line" style={{ marginBottom: 14 }} />
 
       {/* Alertes */}
       {solde < 0 && <Alert type="error">⚠️ Solde négatif ce mois ! Réduisez vos dépenses.</Alert>}
@@ -760,16 +1100,16 @@ function TabAccueil({ data, mois }) {
       {pctEpargne >= 20 && revenus > 0 && <Alert type="success">🎉 Bravo ! Vous épargnez {pctEpargne.toFixed(0)}% de vos revenus ce mois.</Alert>}
 
       {/* 4 KPI — grille 4 colonnes desktop, 2 colonnes mobile */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 8 : 12 }}>
-        <KpiCard label="Revenus" value={`${fmt(revenus)}`} sub="FCFA" icon="💵" color="var(--green)" />
-        <KpiCard label="Dépenses" value={`${fmt(depenses)}`} sub="FCFA" icon="💸" color="var(--red)" />
-        <KpiCard label="Investi" value={`${fmt(investiMois)}`} sub="ce mois" icon="📈" color="var(--blue)" />
-        <KpiCard label="Solde dispo" value={`${fmt(solde)}`} sub="FCFA" icon="💰" color={solde >= 0 ? "var(--gold)" : "var(--red)"} />
+      <div className="stagger" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 8 : 12 }}>
+        <div className="stagger-1"><KpiCard label="Revenus" value={`${fmt(revenus)}`} sub="FCFA" color="var(--green)" /></div>
+        <div className="stagger-2"><KpiCard label="Dépenses" value={`${fmt(depenses)}`} sub="FCFA" color="var(--red)" /></div>
+        <div className="stagger-3"><KpiCard label="Investi" value={`${fmt(investiMois)}`} sub="ce mois" color="var(--blue)" /></div>
+        <div className="stagger-4"><KpiCard label="Solde dispo" value={`${fmt(solde)}`} sub="FCFA" color={soldeCouleur} /></div>
       </div>
 
       {/* Règle 50/30/20 */}
       <div style={G.card}>
-        <h3 style={{ color: "var(--text)", margin: "0 0 16px" }}>📊 Règle 50/30/20</h3>
+        <SectionHeader title="Règle 50 / 30 / 20" color="var(--gold)" />
         {[
           { label: "🏠 Besoins", pct: pctBesoins, limit: 50, op: "≤" },
           { label: "🎮 Envies", pct: pctEnvies, limit: 30, op: "≤" },
@@ -794,7 +1134,7 @@ function TabAccueil({ data, mois }) {
       {/* Aperçu objectifs */}
       {data.objectifs.length > 0 && (
         <div style={G.card}>
-          <h3 style={{ color: "var(--text)", margin: "0 0 16px" }}>🎯 Objectifs en cours</h3>
+          <SectionHeader title="Objectifs en cours" color="var(--accent)" />
           {data.objectifs.slice(0, 3).map(obj => {
             const pct = obj.cible > 0 ? Math.min(100, (obj.epargne / obj.cible) * 100) : 0;
             return (
@@ -952,7 +1292,7 @@ function TabBudget({ data, setData, mois }) {
       {tab === "revenus" && (
         <>
           <div style={G.card}>
-            <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>Ajouter un revenu</h3>
+            <SectionHeader title="Ajouter un revenu" color="var(--green)" />
             <label style={G.label}>Libellé</label>
             <input style={{ ...G.input, marginBottom: 10 }} value={rLib} onChange={e => setRLib(e.target.value)} placeholder="Ex: Salaire, Freelance..." />
             <label style={G.label}>Montant (FCFA)</label>
@@ -965,9 +1305,7 @@ function TabBudget({ data, setData, mois }) {
           </div>
 
           <div style={G.card}>
-            <h3 style={{ color: "var(--text)", margin: "0 0 8px" }}>
-              Revenus du mois — <span style={{ color: "var(--green)" }}>{fmt(periode.revenus.reduce((a,r)=>a+r.montant,0))} FCFA</span>
-            </h3>
+            <SectionHeader title="Revenus du mois" color="var(--green)" />
             {periode.revenus.length === 0 && <div style={{ color: "var(--muted)", fontSize: 13 }}>Aucun revenu saisi.</div>}
             {periode.revenus.map(r => (
               <ItemRow key={r.id} item={r} onDelete={delRevenu}
@@ -983,7 +1321,7 @@ function TabBudget({ data, setData, mois }) {
       {tab === "depenses" && (
         <>
           <div style={G.card}>
-            <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>Ajouter une dépense</h3>
+            <SectionHeader title="Ajouter une dépense" color="var(--red)" />
             <div style={G.grid2}>
               <div>
                 <label style={G.label}>Libellé</label>
@@ -1002,7 +1340,7 @@ function TabBudget({ data, setData, mois }) {
                   border: `1px solid ${dCat === cat.id ? "var(--gold)" : "var(--border)"}`,
                   borderRadius: 6, padding: "4px 10px", cursor: "pointer",
                   color: dCat === cat.id ? "#0A0F1A" : "var(--text)", fontSize: 12,
-                  fontFamily: "Palatino Linotype, Georgia, serif",
+                  fontFamily: "'Space Grotesk', sans-serif",
                 }}>
                   {cat.icon} {cat.label}
                 </button>
@@ -1035,9 +1373,7 @@ function TabBudget({ data, setData, mois }) {
             const total = items.reduce((a,d)=>a+d.montant,0);
             return (
               <div key={groupLabel} style={G.card}>
-                <h3 style={{ color: "var(--text)", margin: "0 0 8px" }}>
-                  {groupLabel} — <span style={{ color: "var(--red)" }}>{fmt(total)} FCFA</span>
-                </h3>
+                <SectionHeader title={`${groupLabel} — ${fmt(total)} FCFA`} color="var(--red)" />
                 {items.length === 0 && <div style={{ color: "var(--muted)", fontSize: 13 }}>Aucune dépense.</div>}
                 {items.map(d => (
                   <ItemRow key={d.id} item={d} onDelete={delDepense}
@@ -1066,8 +1402,10 @@ function TabGraphiques({ data, mois }) {
   const totalEpargne = investi + epargneObj;
 
   const tauxEpargne = revenus > 0 ? (totalEpargne / revenus) * 100 : 0;
+  const tauxEpargneColor = tauxEpargne >= 20 ? "var(--green)" : "var(--red)";
   const depJour = depenses / 30;
   const autonomie = depJour > 0 ? solde / depJour : 0;
+  const autonomieColor = autonomie >= 30 ? "var(--green)" : "var(--red)";
 
   // Fonds d'urgence (actifs de type urgence)
   const fondsUrgence = data.patrimoine.filter(p=>p.type==="urgence").reduce((a,p)=>a+p.valeurActuelle,0);
@@ -1108,14 +1446,14 @@ function TabGraphiques({ data, mois }) {
     <div>
       {/* 3 KPI — grille 3 cols desktop, 1 col mobile */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 8 : 12 }}>
-        <KpiCard label="Taux épargne" value={`${tauxEpargne.toFixed(1)}%`} icon="💰" color={tauxEpargne>=20?"var(--green)":"var(--red)"} />
+        <KpiCard label="Taux épargne" value={`${tauxEpargne.toFixed(1)}%`} icon="💰" color={tauxEpargneColor} />
         <KpiCard label="Dépense/jour" value={`${fmt(depJour)}`} sub="FCFA" icon="📅" />
-        <KpiCard label="Autonomie" value={`${Math.round(autonomie)} j`} icon="🗓️" color={autonomie>=30?"var(--green)":"var(--red)"} />
+        <KpiCard label="Autonomie" value={`${Math.round(autonomie)} j`} icon="🗓️" color={autonomieColor} />
       </div>
 
       {/* Fonds d'urgence */}
       <div style={G.card}>
-        <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>🛡️ Fonds d'urgence</h3>
+        <SectionHeader title="Fonds d'urgence" color="var(--green)" />
         <div style={{ ...G.row, justifyContent:"space-between", marginBottom:8 }}>
           <span style={{ fontSize:13, color:"var(--muted)" }}>Constitué</span>
           <span style={{ fontSize:14, fontWeight:700, color:"var(--gold)" }}>{fmt(fondsUrgence)} FCFA</span>
@@ -1138,7 +1476,7 @@ function TabGraphiques({ data, mois }) {
       {/* Répartition budget mini pie */}
       {pieData.length > 0 && (
         <div style={G.card}>
-          <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>Répartition budget</h3>
+          <SectionHeader title="Répartition budget" color="var(--gold)" />
           <ResponsiveContainer width="100%" height={isMobile ? 150 : 180}>
             <PieChart>
               <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={isMobile ? 55 : 70} label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
@@ -1153,13 +1491,13 @@ function TabGraphiques({ data, mois }) {
       {/* Évolution multi-mois */}
       {multiData.length > 1 && (
         <div style={G.card}>
-          <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>📈 Évolution multi-mois</h3>
+          <SectionHeader title="Évolution multi-mois" color="var(--blue)" />
           <ResponsiveContainer width="100%" height={isMobile ? 160 : 220}>
             <LineChart data={multiData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="mois" tick={{fill:"var(--muted)",fontSize:isMobile?9:11}} />
-              <YAxis tick={{fill:"var(--muted)",fontSize:isMobile?9:11}} tickFormatter={v=>fmt(v/1000)+"k"} width={isMobile?38:50} />
-              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"var(--card)",border:"1px solid var(--border)"}} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,200,255,0.06)" />
+              <XAxis dataKey="mois" tick={{fill:"#4A6880",fontSize:isMobile?9:11}} />
+              <YAxis tick={{fill:"#4A6880",fontSize:isMobile?9:11}} tickFormatter={v=>fmt(v/1000)+"k"} width={isMobile?38:50} />
+              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"rgba(11,22,40,0.95)",border:"1px solid rgba(0,200,255,0.2)",borderRadius:4,fontFamily:"Space Mono,monospace",fontSize:11,boxShadow:"0 8px 24px rgba(0,0,0,0.5)"}} />
               <Legend wrapperStyle={{fontSize: isMobile ? 10 : 12}} />
               <Line type="monotone" dataKey="Revenus" stroke="var(--green)" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Dépenses" stroke="var(--red)" strokeWidth={2} dot={false} />
@@ -1172,13 +1510,13 @@ function TabGraphiques({ data, mois }) {
       {/* BarChart Revenus vs Dépenses */}
       {multiData.length > 0 && (
         <div style={G.card}>
-          <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>📊 Revenus vs Dépenses</h3>
+          <SectionHeader title="Revenus vs Dépenses" color="var(--accent)" />
           <ResponsiveContainer width="100%" height={isMobile ? 150 : 200}>
             <BarChart data={multiData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="mois" tick={{fill:"var(--muted)",fontSize:11}} />
-              <YAxis tick={{fill:"var(--muted)",fontSize:11}} tickFormatter={v=>fmt(v/1000)+"k"} />
-              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"var(--card)",border:"1px solid var(--border)"}} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,200,255,0.06)" />
+              <XAxis dataKey="mois" tick={{fill:"#4A6880",fontSize:11}} />
+              <YAxis tick={{fill:"#4A6880",fontSize:11}} tickFormatter={v=>fmt(v/1000)+"k"} />
+              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"rgba(11,22,40,0.95)",border:"1px solid rgba(0,200,255,0.2)",borderRadius:4,fontFamily:"Space Mono,monospace",fontSize:11,boxShadow:"0 8px 24px rgba(0,0,0,0.5)"}} />
               <Legend />
               <Bar dataKey="Revenus" fill="var(--green)" radius={[4,4,0,0]} />
               <Bar dataKey="Dépenses" fill="var(--red)" radius={[4,4,0,0]} />
@@ -1190,13 +1528,13 @@ function TabGraphiques({ data, mois }) {
       {/* PieChart dépenses par catégorie */}
       {catData.length > 0 && (
         <div style={G.card}>
-          <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>🍕 Dépenses par catégorie</h3>
+          <SectionHeader title="Dépenses par catégorie" color="var(--gold)" />
           <ResponsiveContainer width="100%" height={isMobile ? 160 : 200}>
             <PieChart>
               <Pie data={catData} dataKey="value" cx="50%" cy="50%" outerRadius={isMobile ? 55 : 75} label={false}>
                 {catData.map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
               </Pie>
-              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"var(--card)",border:"1px solid var(--border)"}} />
+              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"rgba(11,22,40,0.95)",border:"1px solid rgba(0,200,255,0.2)",borderRadius:4,fontFamily:"Space Mono,monospace",fontSize:11,boxShadow:"0 8px 24px rgba(0,0,0,0.5)"}} />
               <Legend formatter={(v)=>v.length>18?v.slice(0,18)+"…":v} />
             </PieChart>
           </ResponsiveContainer>
@@ -1206,7 +1544,7 @@ function TabGraphiques({ data, mois }) {
       {/* Top 5 */}
       {top5.length > 0 && (
         <div style={G.card}>
-          <h3 style={{ color:"var(--text)", margin:"0 0 10px" }}>🏆 Top 5 dépenses</h3>
+          <SectionHeader title="Top 5 dépenses" color="var(--gold)" />
           {top5.map((d,i) => (
             <div key={d.id} style={{ marginBottom:10 }}>
               <div style={{ ...G.row, justifyContent:"space-between", marginBottom:4 }}>
@@ -1310,7 +1648,7 @@ function TabObjectifs({ data, setData, mois }) {
 
       {showForm && (
         <div style={G.card}>
-          <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>Créer un objectif</h3>
+          <SectionHeader title="Créer un objectif" color="var(--accent)" />
           <label style={G.label}>Nom de l'objectif</label>
           <input style={{ ...G.input, marginBottom: 10 }} value={nom} onChange={e => setNom(e.target.value)} placeholder="Ex: Voiture, Vacances..." />
           <label style={G.label}>Montant cible (FCFA)</label>
@@ -1559,7 +1897,7 @@ function TabInvestir({ data, setData, mois }) {
         </button>
         {showHistorique && (
           <div style={{ ...G.card, marginTop: 8 }}>
-            <h3 style={{ color: "var(--text)", margin: "0 0 12px" }}>Historique des dépôts</h3>
+            <SectionHeader title="Historique des dépôts" color="var(--muted)" />
             {txInvest.length === 0 && <div style={{ color: "var(--muted)", fontSize: 13 }}>Aucun investissement enregistré.</div>}
             {txInvest.map(tx => {
               const actif = data.patrimoine.find(p => p.id === tx.patrimoineId);
@@ -1679,7 +2017,7 @@ function TabConseil({ data, mois }) {
 
       {/* Simulateur */}
       <div style={G.card}>
-        <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>🧮 Simulateur d'épargne</h3>
+        <SectionHeader title="Simulateur d'épargne" color="var(--gold)" />
         <div style={G.grid2}>
           <div>
             <label style={G.label}>Capital initial (FCFA)</label>
@@ -1704,7 +2042,7 @@ function TabConseil({ data, mois }) {
               ...G.btn(mode === m ? "var(--gold)" : "var(--surface)"),
               flex: 1, color: mode === m ? "#0A0F1A" : "var(--text)", fontSize: 12,
             }}>
-              {m === "composes" ? "📈 Intérêts composés" : "📉 Intérêts simples"}
+              {m === "composes" ? "Intérêts composés" : "Intérêts simples"}
             </button>
           ))}
         </div>
@@ -1737,10 +2075,10 @@ function TabConseil({ data, mois }) {
         {projData.length > 1 && (
           <ResponsiveContainer width="100%" height={isMobile ? 150 : 200} style={{ marginTop: 16 }}>
             <AreaChart data={projData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,200,255,0.06)" />
               <XAxis dataKey="an" tick={{ fill: "var(--muted)", fontSize: 10 }} />
               <YAxis tick={{ fill: "var(--muted)", fontSize: 10 }} tickFormatter={v => fmt(v/1000)+"k"} />
-              <Tooltip formatter={v => `${fmt(v)} FCFA`} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} />
+              <Tooltip formatter={v => `${fmt(v)} FCFA`} contentStyle={{ background: "rgba(11,22,40,0.95)", border: "1px solid rgba(0,200,255,0.2)", borderRadius: 4, fontFamily: "Space Mono,monospace", fontSize: 11 }} />
               <Legend />
               <Area type="monotone" dataKey="Valeur" stroke="var(--gold)" fill="var(--gold)" fillOpacity={0.2} strokeWidth={2} />
               <Area type="monotone" dataKey="Versé" stroke="var(--blue)" fill="var(--blue)" fillOpacity={0.1} strokeWidth={2} />
@@ -1751,7 +2089,7 @@ function TabConseil({ data, mois }) {
 
       {/* Placements recommandés */}
       <div style={G.card}>
-        <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>🌟 Placements recommandés</h3>
+        <SectionHeader title="Placements recommandés" color="var(--gold)" />
         <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>Filtrés pour profil : <strong style={{ color: "var(--gold)", textTransform: "capitalize" }}>{profilRisque}</strong></div>
         {placementsFiltrés.map(p => (
           <div key={p.id} style={{ ...G.card, padding: 14, marginBottom: 10, margin: "0 0 10px" }}>
@@ -1773,7 +2111,7 @@ function TabConseil({ data, mois }) {
 
       {/* Stratégie */}
       <div style={G.card}>
-        <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>📋 Stratégie recommandée</h3>
+        <SectionHeader title="Stratégie recommandée" color="var(--accent)" />
         <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>Répartition suggérée pour {fmt(solde)} FCFA disponibles :</div>
         {strategie.map(s => (
           <div key={s.label} style={{ marginBottom: 10 }}>
@@ -1805,6 +2143,7 @@ function TabPatrimoine({ data, setData, mois }) {
   const totalActifs = data.patrimoine.reduce((a,p)=>a+p.valeurActuelle,0);
   const totalInitial = data.patrimoine.reduce((a,p)=>a+p.valeurInitiale,0);
   const plusValue = totalActifs - totalInitial;
+  const plusValueColor = plusValue >= 0 ? "var(--green)" : "var(--red)";
   const epargneObj = data.objectifs.reduce((a,o)=>a+o.epargne,0);
   const patrimoineNet = totalActifs + epargneObj + solde;
 
@@ -1888,19 +2227,19 @@ function TabPatrimoine({ data, setData, mois }) {
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 8 : 12 }}>
         <KpiCard label="Actifs" value={fmt(totalActifs)} sub="FCFA" icon="💎" />
         <KpiCard label="Objectifs" value={fmt(epargneObj)} sub="FCFA" icon="🎯" />
-        <KpiCard label="Plus-value" value={fmt(plusValue)} sub="FCFA" icon="📈" color={plusValue>=0?"var(--green)":"var(--red)"} />
+        <KpiCard label="Plus-value" value={fmt(plusValue)} sub="FCFA" icon="📈" color={plusValueColor} />
         <KpiCard label="Solde dispo" value={fmt(solde)} sub="FCFA" icon="💰" color="var(--gold)" />
       </div>
 
       {/* Score santé */}
       <div style={{ ...G.card }}>
-        <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>🏥 Score de santé financière</h3>
+        <SectionHeader title="Score de santé financière" color="var(--green)" />
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <svg width={128} height={128} viewBox="0 0 128 128">
             <circle cx={64} cy={64} r={r} fill="none" stroke="var(--surface)" strokeWidth={10}/>
-            <circle cx={64} cy={64} r={r} fill="none" stroke={scoreColor} strokeWidth={10}
+            <circle className="score-ring" cx={64} cy={64} r={r} fill="none" stroke={scoreColor} strokeWidth={10}
               strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-              transform="rotate(-90 64 64)" style={{transition:"stroke-dashoffset 1s"}}/>
+              transform="rotate(-90 64 64)" />
             <text x={64} y={68} textAnchor="middle" fontSize={26} fontWeight={900} fill={scoreColor}>{score}</text>
             <text x={64} y={86} textAnchor="middle" fontSize={12} fill="var(--muted)">/100</text>
           </svg>
@@ -1918,13 +2257,13 @@ function TabPatrimoine({ data, setData, mois }) {
       {/* PieChart répartition */}
       {pieData.length > 0 && (
         <div style={G.card}>
-          <h3 style={{ color: "var(--text)", margin: "0 0 10px" }}>Répartition des actifs</h3>
+          <SectionHeader title="Répartition des actifs" color="var(--gold)" />
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={75} label={false}>
                 {pieData.map((e,i)=><Cell key={i} fill={e.color}/>)}
               </Pie>
-              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"var(--card)",border:"1px solid var(--border)"}}/>
+              <Tooltip formatter={v=>`${fmt(v)} FCFA`} contentStyle={{background:"rgba(11,22,40,0.95)",border:"1px solid rgba(0,200,255,0.2)",borderRadius:4,fontFamily:"Space Mono,monospace",fontSize:11,boxShadow:"0 8px 24px rgba(0,0,0,0.5)"}}/>
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -1958,7 +2297,7 @@ function TabPatrimoine({ data, setData, mois }) {
 
       {showForm && (
         <div style={{ ...G.card, marginTop: 10 }}>
-          <h3 style={{ color: "var(--text)", margin: "0 0 14px" }}>Nouvel actif (source: manuel)</h3>
+          <SectionHeader title="Enregistrer un actif" color="var(--accent)" />
           <label style={G.label}>Type d'actif</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
             {ASSET_TYPES.map(t => (
@@ -1967,7 +2306,7 @@ function TabPatrimoine({ data, setData, mois }) {
                 border: `1px solid ${aType === t.id ? "var(--gold)" : "var(--border)"}`,
                 borderRadius: 6, padding: "6px 10px", cursor: "pointer",
                 color: aType === t.id ? "#0A0F1A" : "var(--text)", fontSize: 12,
-                fontFamily: "Palatino Linotype, Georgia, serif",
+                fontFamily: "'Space Grotesk', sans-serif",
               }}>{t.icon} {t.label}</button>
             ))}
           </div>
@@ -1986,11 +2325,12 @@ function TabPatrimoine({ data, setData, mois }) {
 
       {/* Liste actifs */}
       <div style={{ ...G.card, marginTop: 16 }}>
-        <h3 style={{ color: "var(--text)", margin: "0 0 12px" }}>Tous les actifs ({data.patrimoine.length})</h3>
+        <SectionHeader title={`Actifs (${data.patrimoine.length})`} color="var(--gold)" />
         {data.patrimoine.length === 0 && <div style={{ color: "var(--muted)", fontSize: 13 }}>Aucun actif enregistré.</div>}
         {data.patrimoine.map(actif => {
           const aType = ASSET_TYPES.find(t => t.id === actif.type);
           const pv = actif.valeurActuelle - actif.valeurInitiale;
+          const pvColor = pv >= 0 ? "var(--green)" : "var(--red)";
           return (
             <div key={actif.id} style={{ borderBottom: "1px solid var(--border)", padding: "12px 0" }}>
               <div style={{ ...G.row, justifyContent: "space-between" }}>
@@ -2005,7 +2345,7 @@ function TabPatrimoine({ data, setData, mois }) {
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontWeight: 700, color: "var(--gold)", fontSize: 14 }}>{fmt(actif.valeurActuelle)} FCFA</div>
-                  <div style={{ fontSize: 11, color: pv >= 0 ? "var(--green)" : "var(--red)" }}>
+                  <div style={{ fontSize: 11, color: pvColor }}>
                     {pv >= 0 ? "+" : ""}{fmt(pv)} FCFA
                   </div>
                 </div>
@@ -2073,7 +2413,7 @@ function TabFormation() {
           </div>
         ))}
         <div style={{ ...G.card, background: "var(--surface)" }}>
-          <h3 style={{ color: "var(--gold)", margin: "0 0 10px" }}>📎 Ressources officielles</h3>
+          <SectionHeader title="Ressources officielles" color="var(--gold)" />
           {[
             { label: "BRVM — Bourse régionale UEMOA", url: "https://www.brvm.org" },
             { label: "Djamo — Application financière CI", url: "https://djamo.ci" },
@@ -2202,7 +2542,7 @@ function TabProfil({ data, setData, mois }) {
       {/* Édition */}
       <div style={G.card}>
         <div style={{ ...G.row, justifyContent: "space-between", marginBottom: 14 }}>
-          <h3 style={{ color: "var(--text)", margin: 0 }}>Modifier le profil</h3>
+          <SectionHeader title="Modifier le profil" color="var(--gold)" />
           <button onClick={() => setEditMode(!editMode)} style={G.btnSm()}>
             {editMode ? "Annuler" : "✏️ Modifier"}
           </button>
@@ -2421,21 +2761,73 @@ function App() {
       <>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes loadFadeIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+          @keyframes loadPulse { 0%,100% { opacity:0.4; transform:scale(1); } 50% { opacity:1; transform:scale(1.15); } }
+          @keyframes loadBar { 0% { width:0%; } 60% { width:75%; } 85% { width:90%; } 100% { width:95%; } }
+          @keyframes loadGlow { 0%,100% { box-shadow:0 0 20px rgba(0,200,255,0.1); } 50% { box-shadow:0 0 40px rgba(0,200,255,0.25); } }
+          @keyframes loadScan { 0% { top:-2px; opacity:0; } 10% { opacity:1; } 90% { opacity:1; } 100% { top:100%; opacity:0; } }
           * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { background: #0A0F1A; font-family: 'Palatino Linotype', Georgia, serif; }
+          body { background: #050913; font-family: 'Space Grotesk', sans-serif; }
         `}</style>
         <div style={{
           display: "flex", flexDirection: "column", alignItems: "center",
-          justifyContent: "center", height: "100vh", background: "#0A0F1A", gap: 20,
+          justifyContent: "center", height: "100vh",
+          background: "radial-gradient(ellipse at 50% 40%, rgba(0,200,255,0.06) 0%, #050913 65%)",
+          backgroundImage: "linear-gradient(rgba(0,200,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(0,200,255,0.025) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          gap: 0, position: "relative", overflow: "hidden",
         }}>
-          <div style={{ fontSize: 48 }}>💰</div>
-          <div style={{ color: "#C9A84C", fontSize: 20, fontWeight: 800 }}>Mon Patrimoine CI</div>
+
+          {/* Orbes décoratifs */}
+          <div style={{ position:"absolute", top:"20%", left:"15%", width:200, height:200, borderRadius:"50%", background:"radial-gradient(circle, rgba(0,200,255,0.06) 0%, transparent 70%)", pointerEvents:"none" }} />
+          <div style={{ position:"absolute", bottom:"25%", right:"10%", width:150, height:150, borderRadius:"50%", background:"radial-gradient(circle, rgba(123,95,255,0.07) 0%, transparent 70%)", pointerEvents:"none" }} />
+
+          {/* Carte centrale */}
           <div style={{
-            width: 36, height: 36, border: "3px solid #374151",
-            borderTopColor: "#C9A84C", borderRadius: "50%",
-            animation: "spin 0.8s linear infinite",
-          }} />
-          <div style={{ color: "#9CA3AF", fontSize: 13 }}>Chargement des données...</div>
+            background: "rgba(11,22,40,0.8)", border: "1px solid rgba(0,200,255,0.15)",
+            borderRadius: 12, padding: "40px 48px", textAlign: "center",
+            animation: "loadFadeIn 0.6s ease both, loadGlow 3s ease-in-out infinite",
+            backdropFilter: "blur(16px)", position: "relative", overflow: "hidden",
+            minWidth: 280,
+          }}>
+            {/* Barre top cyan */}
+            <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:"linear-gradient(90deg, transparent, #00C8FF, transparent)" }} />
+
+            {/* Ligne scan animée */}
+            <div style={{ position:"absolute", left:0, right:0, height:1, background:"linear-gradient(90deg, transparent, rgba(0,200,255,0.4), transparent)", animation:"loadScan 2.5s ease-in-out infinite", top:0 }} />
+
+            {/* Logo */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginBottom:28 }}>
+              <div style={{ width:8, height:8, background:"#00C8FF", borderRadius:"50%", boxShadow:"0 0 12px #00C8FF", animation:"loadPulse 2s ease-in-out infinite" }} />
+              <span style={{ fontFamily:"'Space Mono',monospace", fontWeight:700, color:"#00C8FF", fontSize:18, letterSpacing:"0.06em" }}>PATRIMOINE</span>
+              <span style={{ fontFamily:"'Space Mono',monospace", color:"rgba(0,200,255,0.4)", fontSize:16, letterSpacing:"0.04em" }}>/CI</span>
+            </div>
+
+            {/* Spinner anneau */}
+            <div style={{ position:"relative", width:64, height:64, margin:"0 auto 24px" }}>
+              <div style={{ position:"absolute", inset:0, borderRadius:"50%", border:"1px solid rgba(0,200,255,0.1)" }} />
+              <div style={{ position:"absolute", inset:0, borderRadius:"50%", border:"2px solid transparent", borderTopColor:"#00C8FF", borderRightColor:"rgba(0,200,255,0.3)", animation:"spin 1s linear infinite" }} />
+              <div style={{ position:"absolute", inset:8, borderRadius:"50%", border:"1px solid transparent", borderTopColor:"rgba(123,95,255,0.6)", animation:"spin 1.5s linear infinite reverse" }} />
+              <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <div style={{ width:6, height:6, borderRadius:"50%", background:"#00C8FF", boxShadow:"0 0 8px #00C8FF", animation:"loadPulse 1.5s ease-in-out infinite" }} />
+              </div>
+            </div>
+
+            {/* Texte status */}
+            <div style={{ fontFamily:"'Space Mono',monospace", color:"#D8E8FF", fontSize:12, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:20 }}>
+              Initialisation...
+            </div>
+
+            {/* Barre de progression */}
+            <div style={{ background:"rgba(255,255,255,0.05)", borderRadius:2, height:2, overflow:"hidden", width:"100%" }}>
+              <div style={{ height:"100%", background:"linear-gradient(90deg, #00C8FF, rgba(123,95,255,0.8))", boxShadow:"0 0 8px rgba(0,200,255,0.5)", animation:"loadBar 2.5s ease-out forwards", borderRadius:2 }} />
+            </div>
+
+            {/* Label bas */}
+            <div style={{ marginTop:12, fontFamily:"'Space Mono',monospace", color:"rgba(0,200,255,0.4)", fontSize:9, letterSpacing:"0.14em" }}>
+              CHARGEMENT DES DONNÉES
+            </div>
+          </div>
         </div>
       </>
     );
@@ -2448,7 +2840,7 @@ function App() {
         <style>{`
           @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
           * { box-sizing: border-box; }
-          body { margin: 0; font-family: 'Palatino Linotype', Georgia, serif; background: var(--bg); color: var(--text); }
+          body { margin: 0; font-family: 'Space Grotesk', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
           :root { ${Object.entries(THEMES.dark).map(([k,v])=>`${k}:${v}`).join(';')} }
         `}</style>
         <Onboarding onDone={(profil) => setData({ ...data, profil })} />
@@ -2457,18 +2849,20 @@ function App() {
   }
 
   const TABS = [
-    { id: "accueil",   label: "🏠 Accueil"   },
-    { id: "budget",    label: "💵 Budget"    },
-    { id: "graphiques",label: "📊 Graphiques" },
-    { id: "objectifs", label: "🎯 Objectifs" },
-    { id: "investir",  label: "💸 Investir"  },
-    { id: "conseil",   label: "🌱 Conseil"   },
-    { id: "patrimoine",label: "💎 Patrimoine" },
-    { id: "formation", label: "📚 Formation" },
-    { id: "profil",    label: "👤 Profil"    },
+    { id: "accueil",    label: "Accueil"    },
+    { id: "budget",     label: "Budget"     },
+    { id: "graphiques", label: "Analyses"   },
+    { id: "objectifs",  label: "Objectifs"  },
+    { id: "investir",   label: "Investir"   },
+    { id: "conseil",    label: "Conseil"    },
+    { id: "patrimoine", label: "Patrimoine" },
+    { id: "formation",  label: "Formation"  },
+    { id: "profil",     label: "Profil"     },
   ];
 
   const solde = getSolde(data, mois);
+  const soldePos = solde >= 0;
+  const soldeCouleur = soldePos ? "var(--cyan)" : "var(--red)";
 
   return (
     <MobileContext.Provider value={isMobile}>
@@ -2476,14 +2870,13 @@ function App() {
       <style>{`
         @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
         * { box-sizing: border-box; }
-        body { margin: 0; font-family: 'Palatino Linotype', Georgia, serif; background: var(--bg); color: var(--text); }
+        body { margin: 0; font-family: 'Space Grotesk','Segoe UI',sans-serif; background: var(--bg); color: var(--text); }
         :root { ${Object.entries(THEMES.dark).map(([k,v])=>`${k}:${v}`).join(';')} }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: var(--bg); }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,200,255,0.2); border-radius: 99px; }
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
-        a { color: var(--blue); }
-        /* Mobile touch targets */
+        a { color: var(--cyan); }
         @media (max-width: 640px) {
           button { min-height: 36px; }
           .rw .dl { opacity: 1 !important; }
@@ -2494,84 +2887,91 @@ function App() {
       {/* Header sticky — 1 ligne desktop, 2 lignes mobile */}
       <header style={{
         position: "sticky", top: 0, zIndex: 100,
-        background: "var(--card)", borderBottom: "1px solid var(--border)",
+        background: "rgba(5,9,19,0.92)", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)",
+        borderBottom: "1px solid rgba(0,200,255,0.08)",
         padding: isMobile ? "8px 12px" : "10px 16px",
         display: "flex", flexWrap: isMobile ? "wrap" : "nowrap",
-        alignItems: "center", gap: isMobile ? 4 : 10,
+        alignItems: "center", gap: isMobile ? 4 : 12,
       }}>
-        {/* Logo */}
-        <div style={{ fontWeight: 900, color: "var(--gold)", fontSize: isMobile ? 13 : 16, whiteSpace: "nowrap" }}>
-          💰 {isMobile ? "Patrimoine" : "Mon Patrimoine"}
+        {/* Logo futuriste */}
+        <div style={{ whiteSpace: "nowrap", lineHeight: 1, display:"flex", alignItems:"center", gap:6 }}>
+          <div style={{ width:6, height:6, background:"var(--cyan)", borderRadius:"50%", boxShadow:"0 0 8px var(--cyan)", animation:"pulse 2s ease-in-out infinite" }} />
+          <span className="mono" style={{ fontWeight: 700, color: "var(--cyan)", fontSize: isMobile ? 13 : 15, letterSpacing:"0.04em" }}>
+            PATRIMOINE
+          </span>
+          <span className="mono" style={{ fontWeight: 400, color: "var(--muted)", fontSize: isMobile ? 11 : 13, letterSpacing:"0.04em" }}>
+            /CI
+          </span>
         </div>
 
-        {/* Solde — flex:1 pour remplir l'espace */}
+        {/* Solde */}
         <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
-          <div style={{ fontSize: isMobile ? 9 : 11, color: "var(--muted)" }}>Solde disponible</div>
-          <div style={{ color: solde >= 0 ? "var(--gold)" : "var(--red)", fontWeight: 800, fontSize: isMobile ? 13 : 15, whiteSpace: "nowrap" }}>{fmt(solde)} FCFA</div>
-          {saveStatus === "saving" && <div style={{ fontSize: 9, color: "var(--muted)" }}>⏳ sync…</div>}
-          {saveStatus === "ok"     && <div style={{ fontSize: 9, color: "var(--green)" }}>✓ sauvegardé</div>}
-          {saveStatus === "error"  && <div style={{ fontSize: 9, color: "var(--red)" }}>✗ erreur sync</div>}
+          <div className="label-cyber" style={{ marginBottom:2 }}>Solde disponible</div>
+          <div style={{ display:"flex", alignItems:"baseline", justifyContent:"center", gap:3 }}>
+            <AnimatedNum value={solde} className="mono neon-text" style={{ color: soldeCouleur, fontWeight: 700, fontSize: isMobile ? 14 : 16, whiteSpace: "nowrap" }} />
+            <span className="mono" style={{ color: soldeCouleur, fontSize: isMobile ? 10 : 11 }}>FCFA</span>
+          </div>
         </div>
 
-        {/* Boutons droite — logout toujours visible */}
-        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <button onClick={toggleTheme} style={{ background: "var(--surface)", border: "none", borderRadius: 8, padding: isMobile ? "5px 8px" : "6px 10px", cursor: "pointer", fontSize: isMobile ? 14 : 16 }}>
-            {theme === "dark" ? "☀️" : "🌙"}
-          </button>
-          <button onClick={handleLogout} title="Déconnexion" style={{ background: "var(--surface)", border: "none", borderRadius: 8, padding: isMobile ? "5px 8px" : "6px 10px", cursor: "pointer", fontSize: isMobile ? 13 : 14, color: "var(--muted)" }}>
-            ⏻
-          </button>
+        {/* Sélecteur de mois */}
+        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+          <button onClick={() => naviguerMois(prevMois(mois))} style={{ ...G.btn("var(--muted)"), padding:"6px 10px", fontSize:14, lineHeight:1 }}>‹</button>
+          <span className="mono" style={{ color:"var(--text)", fontSize:isMobile?11:12, fontWeight:600, letterSpacing:"0.06em", whiteSpace:"nowrap", minWidth:isMobile?64:80, textAlign:"center" }}>{mois}</span>
+          <button onClick={() => naviguerMois(nextMois(mois))} style={{ ...G.btn("var(--muted)"), padding:"6px 10px", fontSize:14, lineHeight:1 }}>›</button>
         </div>
 
-        {/* Sélecteur mois — sur 2e ligne sur mobile (order:3 + width:100%) */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-          ...(isMobile && { order: 3, width: "100%", paddingTop: 4 }),
-        }}>
-          <button onClick={() => naviguerMois(prevMois(mois))} style={{ background: "var(--surface)", border: "none", borderRadius: 6, width: isMobile ? 32 : 28, height: isMobile ? 32 : 28, cursor: "pointer", color: "var(--text)", fontSize: 16 }}>‹</button>
-          <span style={{ fontSize: isMobile ? 13 : 12, color: "var(--text)", whiteSpace: "nowrap", fontWeight: 700, minWidth: 70, textAlign: "center" }}>{moisLabel(mois)}</span>
-          <button onClick={() => naviguerMois(nextMois(mois))} style={{ background: "var(--surface)", border: "none", borderRadius: 6, width: isMobile ? 32 : 28, height: isMobile ? 32 : 28, cursor: "pointer", color: "var(--text)", fontSize: 16 }}>›</button>
+        {/* Contrôles */}
+        <div style={{ display:"flex", alignItems:"center", gap:isMobile?6:8, marginLeft:"auto" }}>
+          {/* Save status */}
+          {saveStatus === "saving" && <span className="mono" style={{ color:"var(--muted)", fontSize:10, letterSpacing:"0.08em" }}>SYNC…</span>}
+          {saveStatus === "ok" && <span className="mono" style={{ color:"var(--green)", fontSize:10, letterSpacing:"0.08em" }}>✓ OK</span>}
+          {saveStatus === "error" && <span className="mono" style={{ color:"var(--red)", fontSize:10, letterSpacing:"0.08em" }}>✗ ERR</span>}
+          {/* Theme toggle */}
+          <button onClick={toggleTheme} title="Thème" style={{ background:"transparent", border:"1px solid rgba(0,200,255,0.2)", borderRadius:4, color:"var(--muted)", fontSize:14, cursor:"pointer", padding:"5px 8px", lineHeight:1 }}>
+            {theme === "dark" ? "○" : "◑"}
+          </button>
+          {/* Logout */}
+          {authUser && (
+            <button onClick={() => { clearToken(); setAuthUser(null); }} title="Déconnexion" style={{ background:"transparent", border:"1px solid rgba(255,59,107,0.3)", borderRadius:4, color:"var(--red)", fontSize:13, cursor:"pointer", padding:"5px 8px", lineHeight:1 }}>⏻</button>
+          )}
         </div>
       </header>
 
-      {/* Navigation sticky — position ajustée selon hauteur header mobile */}
+      {/* Navigation */}
       <nav style={{
-        position: "sticky", top: isMobile ? 76 : 57, zIndex: 99,
-        background: "var(--card)", borderBottom: "1px solid var(--border)",
-        display: "flex", overflowX: "auto", padding: "0 4px",
-        scrollbarWidth: "none", gap: 0,
+        position:"sticky", top: isMobile ? 56 : 62, zIndex:99,
+        background:"rgba(5,9,19,0.95)", backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
+        borderBottom:"1px solid rgba(0,200,255,0.08)",
+        display:"flex", overflowX:"auto", gap:0, padding:"0 8px",
       }}>
-        <style>{`nav::-webkit-scrollbar { display: none; }`}</style>
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-            background: "none", border: "none",
-            borderBottom: activeTab === t.id ? "2px solid var(--gold)" : "2px solid transparent",
-            padding: isMobile ? "10px 10px" : "12px 14px",
-            cursor: "pointer", whiteSpace: "nowrap",
-            color: activeTab === t.id ? "var(--gold)" : "var(--muted)",
-            fontWeight: activeTab === t.id ? 700 : 400,
-            fontSize: isMobile ? 12 : 13,
-            fontFamily: "Palatino Linotype, Georgia, serif",
-            transition: "color 0.2s",
-            touchAction: "manipulation",
-          }}>{t.label}</button>
+          <button
+            key={t.id}
+            className={"nav-tab" + (activeTab === t.id ? " active" : "")}
+            onClick={() => setActiveTab(t.id)}
+            style={{ padding: isMobile ? "10px 10px" : "12px 14px", whiteSpace:"nowrap", background:"transparent", border:"none", cursor:"pointer", color: activeTab === t.id ? "var(--cyan)" : "var(--muted)" }}
+          >
+            {t.label}
+          </button>
         ))}
       </nav>
 
-      {/* Contenu */}
-      <main style={{ padding: isMobile ? "10px 8px" : "16px", maxWidth: 800, margin: "0 auto", paddingBottom: 60 }}>
-        {activeTab === "accueil"    && <TabAccueil    data={data} mois={mois} />}
-        {activeTab === "budget"     && <TabBudget     data={data} setData={setData} mois={mois} />}
-        {activeTab === "graphiques" && <TabGraphiques data={data} mois={mois} />}
-        {activeTab === "objectifs"  && <TabObjectifs  data={data} setData={setData} mois={mois} />}
-        {activeTab === "investir"   && <TabInvestir   data={data} setData={setData} mois={mois} />}
-        {activeTab === "conseil"    && <TabConseil    data={data} mois={mois} />}
-        {activeTab === "patrimoine" && <TabPatrimoine data={data} setData={setData} mois={mois} />}
-        {activeTab === "formation"  && <TabFormation  />}
-        {activeTab === "profil"     && <TabProfil     data={data} setData={setData} mois={mois} />}
+      {/* Contenu principal */}
+      <main style={{ padding: isMobile ? "12px 10px" : "20px 16px", maxWidth:900, margin:"0 auto" }}>
+        <div key={activeTab} className="tab-content">
+          {activeTab === "accueil"    && <TabAccueil    data={data} setData={setData} mois={mois} />}
+          {activeTab === "budget"     && <TabBudget     data={data} setData={setData} mois={mois} />}
+          {activeTab === "graphiques" && <TabGraphiques data={data} mois={mois} />}
+          {activeTab === "objectifs"  && <TabObjectifs  data={data} setData={setData} mois={mois} />}
+          {activeTab === "investir"   && <TabInvestir   data={data} setData={setData} mois={mois} />}
+          {activeTab === "conseil"    && <TabConseil    data={data} mois={mois} />}
+          {activeTab === "patrimoine" && <TabPatrimoine data={data} setData={setData} mois={mois} />}
+          {activeTab === "formation"  && <TabFormation />}
+          {activeTab === "profil"     && <TabProfil     data={data} setData={setData} />}
+        </div>
       </main>
 
-      {/* Modal nouveau mois */}
+      {/* Modal changement de période */}
       {pendingMois && (
         <ModalNouveauMois
           moisPrecedent={mois}
@@ -2586,10 +2986,9 @@ function App() {
   );
 }
 
-
-const container = document.getElementById('root');
-const root = ReactDOM.createRoot(container);
-root.render(React.createElement(App));
+// ─── RENDU ───────────────────────────────────────────────────────────────────
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
 </script>
 </body>
 </html>
