@@ -130,6 +130,10 @@
       cursor: pointer;
       transition: color 0.2s, border-color 0.2s, text-shadow 0.2s;
       white-space: nowrap;
+      flex-shrink: 0;
+    }
+    @media (max-width: 640px) {
+      .nav-tab { padding: 10px 11px; font-size: 10px; letter-spacing: 0.04em; }
     }
     .nav-tab.active {
       color: var(--cyan);
@@ -777,7 +781,7 @@ function KpiCard({ label, value, sub, color = "var(--gold)", icon }) {
       {/* Top accent line */}
       <div style={{ position:"absolute", top:0, left:0, right:0, height:1, background:`linear-gradient(90deg, ${color}, transparent)` }} />
       <div className="label-cyber" style={{ marginBottom: 8 }}>{label}</div>
-      <div key={key} className="num-anim mono" style={{ color, fontSize: isMobile ? 17 : 24, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.5px" }}>{value}</div>
+      <div key={key} className="num-anim mono" style={{ color, fontSize: isMobile ? 15 : 24, fontWeight: 700, lineHeight: 1, letterSpacing: "-0.5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</div>
       {sub && <div style={{ color: "#8BBAD8", fontSize: isMobile ? 9 : 11, marginTop: 5, fontFamily:"'Space Grotesk',sans-serif", letterSpacing:"0.06em" }}>{sub}</div>}
     </div>
   );
@@ -2093,7 +2097,7 @@ function TabConseil({ data, mois }) {
       {/* Simulateur */}
       <div style={G.card}>
         <SectionHeader title="Simulateur d'épargne" color="var(--gold)" />
-        <div style={G.grid2}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
             <label style={G.label}>Capital initial (FCFA)</label>
             <input style={G.input} type="number" value={capital} onChange={e => setCapital(e.target.value)} />
@@ -2111,11 +2115,11 @@ function TabConseil({ data, mois }) {
             <input style={G.input} type="number" step="0.1" value={taux} onChange={e => setTaux(e.target.value)} />
           </div>
         </div>
-        <div style={{ ...G.row, marginTop: 14, gap: 8 }}>
+        <div style={{ ...G.row, marginTop: 14, gap: 8, flexWrap: "wrap" }}>
           {["composes", "simples"].map(m => (
             <button key={m} onClick={() => setMode(m)} style={{
               ...G.btn(mode === m ? "var(--gold)" : "var(--surface)"),
-              flex: 1, color: mode === m ? "#0A0F1A" : "var(--text)", fontSize: 12,
+              flex: 1, minWidth: 130, color: mode === m ? "#0A0F1A" : "var(--text)", fontSize: 12,
             }}>
               {m === "composes" ? "Intérêts composés" : "Intérêts simples"}
             </button>
@@ -3179,6 +3183,8 @@ function App() {
           button { min-height: 36px; }
           .rw .dl { opacity: 1 !important; }
           nav::-webkit-scrollbar { display: none; }
+          main { overflow-x: hidden; }
+          .stagger > * { min-width: 0; overflow: hidden; }
         }
       `}</style>
 
@@ -3187,12 +3193,16 @@ function App() {
         position: "sticky", top: 0, zIndex: 100,
         background: "rgba(5,9,19,0.92)", backdropFilter:"blur(20px)", WebkitBackdropFilter:"blur(20px)",
         borderBottom: "1px solid rgba(0,200,255,0.08)",
-        padding: isMobile ? "12px 14px" : "14px 24px",
-        display: "flex", flexWrap: isMobile ? "wrap" : "nowrap",
-        alignItems: "center", gap: isMobile ? 4 : 12,
+        padding: isMobile ? "10px 14px" : "14px 24px",
+        display: isMobile ? "grid" : "flex",
+        gridTemplateColumns: isMobile ? "1fr auto" : undefined,
+        rowGap: isMobile ? 8 : undefined,
+        columnGap: isMobile ? 10 : undefined,
+        flexWrap: "nowrap",
+        alignItems: "center", gap: isMobile ? 0 : 12,
       }}>
-        {/* Logo futuriste */}
-        <div style={{ whiteSpace: "nowrap", lineHeight: 1, display:"flex", alignItems:"center", gap:6 }}>
+        {/* Logo futuriste — mobile: row1 col1 | desktop: order 1 */}
+        <div style={{ whiteSpace: "nowrap", lineHeight: 1, display:"flex", alignItems:"center", gap:6, gridRow: isMobile ? 1 : undefined, gridColumn: isMobile ? 1 : undefined, order: isMobile ? undefined : 1 }}>
           <div style={{ width:6, height:6, background:"var(--cyan)", borderRadius:"50%", boxShadow:"0 0 8px var(--cyan)", animation:"pulse 2s ease-in-out infinite" }} />
           <span className="mono" style={{ fontWeight: 700, color: "var(--cyan)", fontSize: isMobile ? 14 : 17, letterSpacing:"0.04em" }}>
             PATRIMOINE
@@ -3202,25 +3212,8 @@ function App() {
           </span>
         </div>
 
-        {/* Solde */}
-        <div style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
-          <div className="label-cyber" style={{ marginBottom:3, fontSize:9, color:"rgba(0,200,255,0.6)" }}>SOLDE DISPONIBLE</div>
-          <div style={{ display:"flex", alignItems:"baseline", justifyContent:"center", gap:3 }}>
-            <AnimatedNum value={solde} className="mono neon-text" style={{ color: soldeCouleur, fontWeight: 700, fontSize: isMobile ? 14 : 16, whiteSpace: "nowrap" }} />
-            <span className="mono" style={{ color: soldeCouleur, fontSize: isMobile ? 10 : 11 }}>FCFA</span>
-          </div>
-        </div>
-
-        {/* Sélecteur de mois */}
-        {/* Sélecteur de mois */}
-        <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-          <button onClick={() => naviguerMois(prevMois(mois))} style={{ ...G.btn("var(--muted)"), padding:"6px 10px", fontSize:14, lineHeight:1 }}>‹</button>
-          <span className="mono" style={{ color:"var(--text)", fontSize:isMobile?11:12, fontWeight:600, letterSpacing:"0.06em", whiteSpace:"nowrap", minWidth:isMobile?64:80, textAlign:"center" }}>{mois}</span>
-          <button onClick={() => naviguerMois(nextMois(mois))} style={{ ...G.btn("var(--muted)"), padding:"6px 10px", fontSize:14, lineHeight:1 }}>›</button>
-        </div>
-
-        {/* Contrôles */}
-        <div style={{ display:"flex", alignItems:"center", gap:isMobile?6:8, marginLeft:"auto" }}>
+        {/* Contrôles — mobile: row1 col2 | desktop: order 4 */}
+        <div style={{ display:"flex", alignItems:"center", gap:isMobile?6:8, marginLeft: isMobile ? undefined : "auto", justifyContent: isMobile ? "flex-end" : undefined, gridRow: isMobile ? 1 : undefined, gridColumn: isMobile ? 2 : undefined, order: isMobile ? undefined : 4 }}>
           {saveStatus === "saving" && <span className="mono" style={{ color:"var(--muted)", fontSize:10, letterSpacing:"0.08em" }}>SYNC…</span>}
           {saveStatus === "ok"      && <span className="mono" style={{ color:"var(--green)", fontSize:10, letterSpacing:"0.08em" }}>✓ OK</span>}
           {saveStatus === "error"   && <span className="mono" style={{ color:"var(--red)",   fontSize:10, letterSpacing:"0.08em" }}>✗ ERR</span>}
@@ -3231,10 +3224,26 @@ function App() {
             <button onClick={handleLogout} style={{ background:"transparent", border:"1px solid rgba(255,59,107,0.3)", borderRadius:4, color:"var(--red)", fontSize:13, cursor:"pointer", padding:"5px 8px", lineHeight:1 }}>⏻</button>
           )}
         </div>
+
+        {/* Sélecteur de mois — mobile: row2 col1 | desktop: order 3 */}
+        <div style={{ display:"flex", alignItems:"center", gap:4, gridRow: isMobile ? 2 : undefined, gridColumn: isMobile ? 1 : undefined, order: isMobile ? undefined : 3 }}>
+          <button onClick={() => naviguerMois(prevMois(mois))} style={{ ...G.btn("var(--muted)"), padding:"6px 10px", fontSize:14, lineHeight:1 }}>‹</button>
+          <span className="mono" style={{ color:"var(--text)", fontSize:isMobile?11:12, fontWeight:600, letterSpacing:"0.06em", whiteSpace:"nowrap", minWidth:isMobile?64:80, textAlign:"center" }}>{mois}</span>
+          <button onClick={() => naviguerMois(nextMois(mois))} style={{ ...G.btn("var(--muted)"), padding:"6px 10px", fontSize:14, lineHeight:1 }}>›</button>
+        </div>
+
+        {/* Solde disponible — mobile: row2 col2 | desktop: order 2, flex 1, centered */}
+        <div style={{ flex: isMobile ? undefined : 1, textAlign: isMobile ? "right" : "center", minWidth: 0, gridRow: isMobile ? 2 : undefined, gridColumn: isMobile ? 2 : undefined, order: isMobile ? undefined : 2 }}>
+          <div className="label-cyber" style={{ marginBottom:3, fontSize:9, color:"rgba(0,200,255,0.6)" }}>SOLDE DISPONIBLE</div>
+          <div style={{ display:"flex", alignItems:"baseline", justifyContent: isMobile ? "flex-end" : "center", gap:3 }}>
+            <AnimatedNum value={solde} className="mono neon-text" style={{ color: soldeCouleur, fontWeight: 700, fontSize: isMobile ? 14 : 16, whiteSpace: "nowrap" }} />
+            <span className="mono" style={{ color: soldeCouleur, fontSize: isMobile ? 10 : 11 }}>FCFA</span>
+          </div>
+        </div>
       </header>
 
       <nav style={{
-        position:"sticky", top: isMobile ? 56 : 62, zIndex:99,
+        position:"sticky", top: isMobile ? 88 : 62, zIndex:99,
         background:"rgba(5,9,19,0.95)", backdropFilter:"blur(12px)", WebkitBackdropFilter:"blur(12px)",
         borderBottom:"1px solid rgba(0,200,255,0.08)",
         display:"flex", overflowX:"auto", gap:0, padding:"0 8px",
@@ -3263,7 +3272,7 @@ function App() {
       {pendingMois && (
         <ModalNouveauMois
           moisPrecedent={mois} moisCible={pendingMois} data={data}
-          onChoix={handleChoixMois} onAnuler={() => setPendingMois(null)}
+          onChoix={handleChoixMois} onAnnuler={() => setPendingMois(null)}
         />
       )}
     </>
