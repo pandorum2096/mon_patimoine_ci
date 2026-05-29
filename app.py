@@ -351,11 +351,11 @@ OLLAMA_URL   = os.environ.get("OLLAMA_URL",   "http://localhost:11434")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 FLASK_ENV    = os.environ.get("FLASK_ENV",    "production")
 
-# En production on utilise Groq si la clé est présente, sinon Ollama
-USE_GROQ = bool(GROQ_API_KEY) and FLASK_ENV != "development"
+# Groq si la clé est présente (local ou prod), Ollama sinon
+USE_GROQ = bool(GROQ_API_KEY)
 
 # Modèle Groq par défaut (llama3 compatible, gratuit)
-GROQ_MODEL_DEFAULT = "llama3-8b-8192"
+GROQ_MODEL_DEFAULT = "llama-3.3-70b-versatile"
 GROQ_API_URL       = "https://api.groq.com/openai/v1/chat/completions"
 
 print(f"🤖 Mode IA : {'GROQ CLOUD (' + GROQ_MODEL_DEFAULT + ')' if USE_GROQ else 'OLLAMA LOCAL (' + OLLAMA_URL + ')'}")
@@ -393,38 +393,36 @@ Réponds uniquement en français."""
 
 
 def _call_groq(prompt, model=None):
-    """Appelle l'API Groq (OpenAI-compatible). Retourne le texte généré."""
+    """Appelle l'API Groq via le SDK officiel (évite les blocages Cloudflare)."""
+    from groq import Groq as _Groq
     model = model or GROQ_MODEL_DEFAULT
-    # Groq accepte uniquement ses propres modèles — on mappe les noms Ollama
     groq_models = {
-        "llama3": "llama3-8b-8192",
-        "llama3:8b": "llama3-8b-8192",
-        "llama3:70b": "llama3-70b-8192",
-        "mistral": "mixtral-8x7b-32768",
-        "gemma2": "gemma2-9b-it",
-        "gemma": "gemma2-9b-it",
+        # Anciens noms → nouveaux modèles actifs Groq (2025-2026)
+        "llama-3.3-70b-versatile": "llama-3.3-70b-versatile",
+        "llama-3.1-70b-versatile": "llama-3.1-70b-versatile",
+        "mixtral-8x7b-32768":      "mixtral-8x7b-32768",
+        # Anciens noms → meilleur modèle actif
+        "llama3":                  "llama-3.3-70b-versatile",
+        "llama3:8b":               "llama-3.3-70b-versatile",
+        "llama3:70b":              "llama-3.3-70b-versatile",
+        "llama3-8b-8192":          "llama-3.3-70b-versatile",
+        "llama3-70b-8192":         "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant":    "llama-3.3-70b-versatile",
+        "gemma2":                  "llama-3.3-70b-versatile",
+        "gemma2-9b-it":            "llama-3.3-70b-versatile",
+        "gemma":                   "llama-3.3-70b-versatile",
     }
     groq_model = groq_models.get(model, GROQ_MODEL_DEFAULT)
+    print(f"[Groq SDK] model={groq_model} key_prefix={GROQ_API_KEY[:12]}...")
 
-    payload = json.dumps({
-        "model": groq_model,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7,
-        "max_tokens": 700,
-    }).encode("utf-8")
-
-    req = _urllib_req.Request(
-        GROQ_API_URL,
-        data=payload,
-        headers={
-            "Content-Type":  "application/json",
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-        },
-        method="POST"
+    client = _Groq(api_key=GROQ_API_KEY)
+    chat   = client.chat.completions.create(
+        model=groq_model,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=700,
     )
-    with _urllib_req.urlopen(req, timeout=60) as resp:
-        result = json.loads(resp.read().decode("utf-8"))
-        return result["choices"][0]["message"]["content"].strip(), groq_model
+    return chat.choices[0].message.content.strip(), groq_model
 
 
 def _call_ollama(prompt, model="llama3"):
@@ -496,7 +494,7 @@ def conseil_ia():
 @require_auth
 def ollama_models():
     if USE_GROQ:
-        models = ["llama3-8b-8192", "llama3-70b-8192", "mixtral-8x7b-32768", "gemma2-9b-it"]
+        models = ["llama-3.3-70b-versatile", "llama-3.1-70b-versatile", "mixtral-8x7b-32768"]
         return jsonify({"ok": True, "models": models, "engine": "groq"}), 200
     try:
         req = _urllib_req.Request(f"{OLLAMA_URL}/api/tags", method="GET")
@@ -514,7 +512,6 @@ def health():
     return jsonify({"status": "ok", "engine": "groq" if USE_GROQ else "ollama"}), 200
 
 
-# ─── Servir index.html ────────────────────────────────────────────────────────────────────────
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_frontend(path):
@@ -523,7 +520,6 @@ def serve_frontend(path):
     return send_from_directory(_BASE_DIR, "index.html")
 
 
-# ─── Point d'entree local ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     debug = FLASK_ENV == "development"

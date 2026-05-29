@@ -2217,20 +2217,24 @@ function OllamaConseil({ data, mois }) {
 
   const OLLAMA_DIRECT = "http://localhost:11434";
 
-  // Charge les modèles : essaie Flask, sinon Ollama direct
+  // Charge les modèles à chaque montage du composant (cache: "no-store" pour éviter les vieux modèles)
   useEffect(() => {
     const token = getToken();
     const viaFlask = token
-      ? fetch("/api/ollama-models", { headers: { Authorization: "Bearer " + token } })
+      ? fetch("/api/ollama-models", { headers: { Authorization: "Bearer " + token }, cache: "no-store" })
           .then(r => r.json()).then(d => d.ok && d.models.length ? d.models : null).catch(() => null)
       : Promise.resolve(null);
 
     viaFlask.then(models => {
-      if (models) { setIaModels(models); return; }
+      if (models) {
+        setIaModels(models);
+        setIaModel(models[0]); // toujours sélectionner le premier modèle actif
+        return;
+      }
       // Fallback : appel direct à Ollama
-      fetch(OLLAMA_DIRECT + "/api/tags")
+      fetch(OLLAMA_DIRECT + "/api/tags", { cache: "no-store" })
         .then(r => r.json())
-        .then(d => { const ms = (d.models||[]).map(m=>m.name); if (ms.length) setIaModels(ms); })
+        .then(d => { const ms = (d.models||[]).map(m=>m.name); if (ms.length) { setIaModels(ms); setIaModel(ms[0]); } })
         .catch(() => {});
     });
   }, []);
@@ -2290,33 +2294,40 @@ MISSION : Donne 4 à 5 conseils financiers personnalisés, précis et actionnabl
 
     const token = getToken();
 
-    // Essaie d'abord via Flask (si dispo), sinon appel direct Ollama
-    const viaFlask = token
-      ? fetch("/api/conseil-ia", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-          body: JSON.stringify({ profile:data.profil, revenus, depenses, solde, epargne, patrimoine, objectifs, actifs, mois, model:iaModel })
-        }).then(r => { if (!r.ok) throw new Error("flask_err"); return r.json(); })
-          .then(d => { if (!d.ok) throw new Error(d.error||"flask_err"); return d.conseil; })
-      : Promise.reject("no_token");
+    if (!token) {
+      setIaLoading(false);
+      setIaError("Non authentifié — reconnectez-vous.");
+      return;
+    }
 
-    viaFlask
-      .then(conseil => { setIaLoading(false); setIaResponse(conseil); })
+    // Appel Flask — si Flask répond (même avec erreur), on affiche le vrai message
+    // Si Flask est totalement injoignable (réseau), on tente Ollama direct en fallback
+    fetch("/api/conseil-ia", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify({ profile:data.profil, revenus, depenses, solde, epargne, patrimoine, objectifs, actifs, mois, model:iaModel })
+    })
+    .then(r => r.json())
+    .then(d => {
+      setIaLoading(false);
+      if (d.ok) setIaResponse(d.conseil);
+      else setIaError(d.error || "Erreur inconnue du serveur.");
+    })
+    .catch(() => {
+      // Flask totalement injoignable → fallback Ollama direct (dev local sans Flask)
+      const prompt = buildPrompt(revenus, depenses, solde, epargne, patrimoine, objectifs, actifs);
+      fetch(OLLAMA_DIRECT + "/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: iaModel, prompt, stream: false, options: { temperature: 0.7, num_predict: 700 } })
+      })
+      .then(r => r.json())
+      .then(d => { setIaLoading(false); setIaResponse(d.response || "Réponse vide."); })
       .catch(() => {
-        // Fallback : appel direct à Ollama depuis le navigateur
-        const prompt = buildPrompt(revenus, depenses, solde, epargne, patrimoine, objectifs, actifs);
-        fetch(OLLAMA_DIRECT + "/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model: iaModel, prompt, stream: false, options: { temperature: 0.7, num_predict: 700 } })
-        })
-        .then(r => r.json())
-        .then(d => { setIaLoading(false); setIaResponse(d.response || "Réponse vide."); })
-        .catch(() => {
-          setIaLoading(false);
-          setIaError("Ollama inaccessible. Vérifiez qu'Ollama tourne et que le modèle est installé.");
-        });
+        setIaLoading(false);
+        setIaError("Serveur inaccessible. Vérifiez que Flask tourne (python app.py) ou qu'Ollama est démarré.");
       });
+    });
   }, [data, mois, iaModel]);
 
   return (
@@ -3252,7 +3263,7 @@ function App() {
       {pendingMois && (
         <ModalNouveauMois
           moisPrecedent={mois} moisCible={pendingMois} data={data}
-          onChoix={handleChoixMois} onAnnuler={() => setPendingMois(null)}
+          onChoix={handleChoixMois} onAnuler={() => setPendingMois(null)}
         />
       )}
     </>
