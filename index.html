@@ -723,7 +723,7 @@ const G = {
   card: {
     background: "rgba(11, 22, 40, 0.8)",
     border: "1px solid rgba(0,200,255,0.1)",
-    borderRadius: 10, padding: "24px 22px", marginBottom: 0,
+    borderRadius: 10, padding: "24px 22px", marginBottom: 18,
     animation: "slideUp 0.35s ease both",
     backdropFilter: "blur(12px)",
     WebkitBackdropFilter: "blur(12px)",
@@ -1656,7 +1656,7 @@ function TabBudget({ data, setData, mois }) {
           </div>
 
           {/* Filtre catégorie */}
-          <div style={{ ...G.row, flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+          <div style={{ ...G.row, flexWrap: "wrap", gap: 6, marginBottom: 12, marginTop: 20 }}>
             <button onClick={() => setFiltreCat(null)} style={{
               ...G.btnSm(filtreCat === null ? "var(--gold)" : "var(--surface)"),
               color: "#ffffff",
@@ -1681,7 +1681,7 @@ function TabBudget({ data, setData, mois }) {
             const maxItem  = sorted[0]?.montant || 1;
 
             return (
-              <div key={label} style={{ ...G.card, padding:0, overflow:"hidden" }}>
+              <div key={label} style={{ ...G.card, padding:0, overflow:"hidden", marginTop:16 }}>
 
                 {/* En-tête groupe */}
                 <div style={{ padding:"14px 18px 10px", borderBottom:"1px solid rgba(0,200,255,0.08)" }}>
@@ -5264,7 +5264,7 @@ function AdminPanel({ authUser }) {
             &#9881; Panel Administration
           </h2>
           <div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>
-            {authUser.email} &mdash; acces restreint
+            {authUser.email}
           </div>
         </div>
         <button onClick={fetchAll} style={{...ab("var(--cyan)"),padding:"6px 14px",fontSize:11}}>
