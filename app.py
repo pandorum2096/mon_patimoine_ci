@@ -192,6 +192,16 @@ def require_admin(f):
 
 
 # ─── Routes AUTH ──────────────────────────────────────────────────────────────
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_frontend(path):
+    import os
+    base = os.path.dirname(os.path.abspath(__file__))
+    target = os.path.join(base, path) if path else None
+    if path and os.path.isfile(target):
+        return send_from_directory(base, path)
+    return send_from_directory(base, "index.html")
+
 @app.route("/api/register", methods=["POST"])
 def register():
     body = request.get_json() or {}
