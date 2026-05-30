@@ -3455,7 +3455,7 @@ function TabPatrimoine({ data, setData, mois }) {
       <div style={{
         ...G.card, borderColor:"rgba(201,168,76,0.4)", textAlign:"center",
         background:"linear-gradient(135deg,rgba(201,168,76,0.06) 0%,rgba(11,22,40,0.9) 100%)",
-        position:"relative", overflow:"hidden",
+        position:"relative", overflow:"hidden", marginBottom: isMobile ? 14 : 20,
         boxShadow:"0 0 40px rgba(201,168,76,0.12), inset 0 1px 0 rgba(201,168,76,0.15)",
         transform: mounted ? "translateY(0)" : "translateY(8px)",
         opacity: mounted ? 1 : 0,
@@ -3480,7 +3480,7 @@ function TabPatrimoine({ data, setData, mois }) {
       </div>
 
       {/* 4 KPI cards interactives */}
-      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 10 : 14, marginBottom:16 }}>
+      <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 10 : 14, marginBottom:16, marginTop: isMobile ? 14 : 20 }}>
         {kpis.map((k,i) => {
           const isH = hovKpi === k.id;
           return (
