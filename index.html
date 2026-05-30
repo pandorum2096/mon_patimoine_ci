@@ -4465,7 +4465,7 @@ function App() {
       // Décoder le nom depuis le token (payload base64)
       const payload = JSON.parse(atob(t.split(".")[1]));
       if (payload.exp * 1000 < Date.now()) { clearToken(); return null; }
-      return { email: payload.email };
+      return { email: payload.email, is_admin: !!payload.is_admin };
     } catch(_) { return null; }
   });
 
@@ -4650,6 +4650,7 @@ function App() {
     );
   }
 
+  const isAdmin = !!(authUser && authUser.is_admin);
   const TABS = [
     { id: "accueil",    label: "Accueil"    },
     { id: "budget",     label: "Budget"     },
@@ -4660,6 +4661,7 @@ function App() {
     { id: "patrimoine", label: "Patrimoine" },
     { id: "formation",  label: "Formation"  },
     { id: "profil",     label: "Profil"     },
+    ...(isAdmin ? [{ id: "admin", label: "⚙ Admin", icon: "⚙" }] : []),
   ];
 
   const solde = getSolde(data, mois);
@@ -4749,30 +4751,44 @@ function App() {
         display:"flex", overflowX:"auto", gap:0, padding:"0 8px",
       }}>
         {TABS.map(t => (
-          <button key={t.id} className={"nav-tab" + (activeTab === t.id ? " active" : "")} onClick={() => setActiveTab(t.id)}>
-            {t.label}
-          </button>
+          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+            background: "none", border: "none",
+            borderBottom: activeTab === t.id ? "2px solid var(--cyan)" : "2px solid transparent",
+            padding: isMobile ? "10px 10px" : "12px 14px",
+            cursor: "pointer", whiteSpace: "nowrap",
+            color: t.id === "admin"
+              ? (activeTab === t.id ? "#F59E0B" : "rgba(245,158,11,0.6)")
+              : (activeTab === t.id ? "var(--cyan)" : "var(--muted)"),
+            fontWeight: activeTab === t.id ? 700 : 400,
+            fontSize: isMobile ? 11 : 13,
+            fontFamily: "'Space Grotesk','Segoe UI',sans-serif",
+            transition: "color 0.2s",
+          }}>{t.label}</button>
         ))}
       </nav>
 
-      <main style={{ padding: isMobile ? "16px 12px" : "28px 20px", maxWidth:920, margin:"0 auto" }}>
-        <div key={activeTab} className="tab-content">
-          {activeTab === "accueil"    && <TabAccueil    data={data} setData={setData} mois={mois} />}
-          {activeTab === "budget"     && <TabBudget     data={data} setData={setData} mois={mois} />}
-          {activeTab === "graphiques" && <TabGraphiques data={data} mois={mois} />}
-          {activeTab === "objectifs"  && <TabObjectifs  data={data} setData={setData} mois={mois} />}
-          {activeTab === "investir"   && <TabInvestir   data={data} setData={setData} mois={mois} />}
-          {activeTab === "conseil"    && <TabConseil    data={data} mois={mois} />}
-          {activeTab === "patrimoine" && <TabPatrimoine data={data} setData={setData} mois={mois} />}
-          {activeTab === "formation"  && <TabFormation />}
-          {activeTab === "profil"     && <TabProfil     data={data} setData={setData} />}
-        </div>
+      {/* Contenu principal */}
+      <main style={{ paddingTop: isMobile ? "12px" : "20px", paddingLeft: isMobile ? "12px" : "20px", paddingRight: isMobile ? "12px" : "20px", paddingBottom: 60, maxWidth: 860, margin: "0 auto" }}>
+        {activeTab === "accueil"    && <TabAccueil    data={data} mois={mois} />}
+        {activeTab === "budget"     && <TabBudget     data={data} setData={setData} mois={mois} />}
+        {activeTab === "graphiques" && <TabGraphiques data={data} mois={mois} />}
+        {activeTab === "objectifs"  && <TabObjectifs  data={data} setData={setData} mois={mois} />}
+        {activeTab === "investir"   && <TabInvestir   data={data} setData={setData} mois={mois} />}
+        {activeTab === "conseil"    && <TabConseil    data={data} mois={mois} />}
+        {activeTab === "patrimoine" && <TabPatrimoine data={data} setData={setData} mois={mois} />}
+        {activeTab === "formation"  && <TabFormation  />}
+        {activeTab === "profil"     && <TabProfil     data={data} setData={setData} mois={mois} onReset={() => setData({ ...DEFAULT_STATE })} />}
+        {activeTab === "admin"      && isAdmin && <AdminPanel authUser={authUser} />}
       </main>
 
+      {/* Modal nouveau mois */}
       {pendingMois && (
         <ModalNouveauMois
-          moisPrecedent={mois} moisCible={pendingMois} data={data}
-          onChoix={handleChoixMois} onAnnuler={() => setPendingMois(null)}
+          moisPrecedent={mois}
+          moisCible={pendingMois}
+          data={data}
+          onChoix={handleChoixMois}
+          onAnnuler={() => setPendingMois(null)}
         />
       )}
     </>
@@ -4780,8 +4796,666 @@ function App() {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ADMIN PANEL
+// ═══════════════════════════════════════════════════════════════════════════
+function _adminFmtM(n) {
+  if (n === null || n === undefined) return "—";
+  if (n === 0) return "0";
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return (n/1e9).toFixed(1) + "G";
+  if (abs >= 1e6) return (n/1e6).toFixed(1) + "M";
+  if (abs >= 1e3) return (n/1e3).toFixed(0) + "k";
+  return String(Math.round(n));
+}
+function _adminPct(v, t) { return t > 0 ? Math.min(100, Math.round(v/t*100)) : 0; }
+function _adminActBtn(col) {
+  return { background:"none", border:`1px solid ${col}`, color:col,
+           borderRadius:6, padding:"3px 9px", fontSize:10, cursor:"pointer", fontWeight:600 };
+}
+
+function AdminUserDetail({ u, isMobile }) {
+  const fm = _adminFmtM;
+  const pc = _adminPct;
+  const [openSection, setOpenSection] = React.useState("budget");
+
+  // ── Sélecteur de mois ─────────────────────────────────────────────────
+  const historique = u.historique_mois || [];
+  const allMoisList = historique.map(h => h.mois).filter(Boolean).sort().reverse();
+  const defaultMois = u.mois_actif || (allMoisList[0] || "");
+  const [selectedMois, setSelectedMois] = React.useState(defaultMois);
+  const [moisData, setMoisData]         = React.useState(null);  // données du mois sélectionné
+  const [moisLoading, setMoisLoading]   = React.useState(false);
+
+  // Fetch les lignes du mois sélectionné si différent du mois actif
+  React.useEffect(() => {
+    if (!selectedMois || !u.id) return;
+    // Si c'est le mois actif, utiliser les données déjà chargées
+    if (selectedMois === (u.mois_actif || defaultMois) && u.lignes_revenus !== undefined) {
+      setMoisData(null); // utilise u.lignes_revenus / u.lignes_depenses
+      return;
+    }
+    setMoisLoading(true);
+    const tok = localStorage.getItem("patrimoine_token") || sessionStorage.getItem("patrimoine_token") || "";
+    fetch(`/api/admin/users/${u.id}/month/${selectedMois}`, {
+      headers: { Authorization: `Bearer ${tok}` }
+    })
+      .then(r => r.json())
+      .then(d => { setMoisData(d); setMoisLoading(false); })
+      .catch(() => setMoisLoading(false));
+  }, [selectedMois, u.id]);
+
+  // ── Données effectives selon mois sélectionné ─────────────────────────
+  const isCurMois = selectedMois === (u.mois_actif || defaultMois);
+  const lignesRevenus  = (moisData ? moisData.revenus  : u.lignes_revenus)  || [];
+  const lignesDepenses = (moisData ? moisData.depenses : u.lignes_depenses) || [];
+
+  // KPIs : depuis historique si mois non-actif, sinon depuis u
+  const histRow = historique.find(h => h.mois === selectedMois);
+  const revenus     = (moisData ? moisData.total_revenus  : null) ?? (histRow ? histRow.revenus  : null) ?? u.revenus     ?? 0;
+  const depenses    = (moisData ? moisData.total_depenses : null) ?? (histRow ? histRow.depenses : null) ?? u.depenses    ?? 0;
+  const allocations = (moisData ? moisData.allocations    : null) ?? (histRow ? histRow.allocations||0 : null) ?? u.allocations ?? 0;
+  const solde       = revenus - depenses - allocations;
+
+  const patrimoineNet = u.patrimoine_net || ((u.total_actifs||0) + (u.total_epargne_obj||0) + (isCurMois ? solde : 0));
+  const totalActifs   = u.total_actifs || 0;
+  const taux    = revenus > 0 ? pc(revenus - depenses, revenus) : 0;
+  const tauxCol = taux >= 20 ? "#10B981" : taux >= 10 ? "#F59E0B" : "#EF4444";
+
+  const actifs         = u.actifs          || [];
+  const objectifs      = u.objectifs       || [];
+  const transactions   = u.transactions_recentes || [];
+
+  const catColors = {
+    "Loyer":"#6366F1","Électricité":"#F59E0B","Eau":"#06B6D4","Gaz":"#EF4444",
+    "Internet":"#8B5CF6","Assurance":"#10B981","Crédit":"#EC4899",
+    "Alimentation":"#84CC16","Transport":"#F59E0B","Santé":"#EF4444",
+    "Éducation":"#6366F1","Famille":"#10B981","Loisirs":"#EC4899",
+    "Shopping":"#8B5CF6","Abonnements":"#06B6D4","Autre":"#6B7280",
+  };
+  const cc = (cat) => catColors[cat] || "var(--muted)";
+
+  const tabBtn = (id, label) => (
+    <button key={id} onClick={() => setOpenSection(id)} style={{
+      background: openSection===id ? "rgba(0,200,255,0.15)" : "rgba(255,255,255,0.04)",
+      border: `1px solid ${openSection===id ? "rgba(0,200,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+      color: openSection===id ? "var(--cyan)" : "var(--muted)",
+      borderRadius:8, padding:"5px 10px", fontSize:10, cursor:"pointer", fontWeight:600,
+    }}>{label}</button>
+  );
+
+  return (
+    <div style={{ padding:"12px 14px 16px", background:"rgba(0,200,255,0.02)", borderTop:"1px solid rgba(0,200,255,0.08)" }}>
+
+      {/* ── Sélecteur de mois ── */}
+      {allMoisList.length > 0 && (
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12, flexWrap:"wrap" }}>
+          <span style={{ fontSize:11, color:"var(--muted)", fontWeight:700 }}>📅 Mois :</span>
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+            {allMoisList.map(m => (
+              <button key={m} onClick={() => setSelectedMois(m)} style={{
+                padding:"3px 10px", borderRadius:6, fontSize:10, fontWeight:700, cursor:"pointer",
+                background: selectedMois===m ? "rgba(0,200,255,0.2)" : "rgba(255,255,255,0.04)",
+                border: `1px solid ${selectedMois===m ? "var(--cyan)" : "rgba(255,255,255,0.1)"}`,
+                color: selectedMois===m ? "var(--cyan)" : "var(--muted)",
+                transition:"all 0.15s",
+              }}>
+                {m}{m === u.mois_actif ? " ◀" : ""}
+              </button>
+            ))}
+          </div>
+          {moisLoading && <span style={{fontSize:10,color:"var(--muted)"}}>⏳ chargement…</span>}
+        </div>
+      )}
+
+      {/* ── Résumé profil ── */}
+      <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12, fontSize:11 }}>
+        {selectedMois && <span style={{color:"var(--muted)"}}>📅 Mois affiché : <b style={{color:"var(--cyan)"}}>{selectedMois}{selectedMois===u.mois_actif?" (actif)":""}</b></span>}
+        {u.profil_risque && <span style={{color:"var(--muted)"}}>🎯 Profil : <b style={{color:"#F59E0B"}}>{u.profil_risque}</b></span>}
+        {(u.revenu||0) > 0 && <span style={{color:"var(--muted)"}}>💰 Revenu déclaré : <b style={{color:"#10B981"}}>{fm(u.revenu)} FCFA/mois</b></span>}
+        <span style={{color:"var(--muted)"}}>📆 <b style={{color:"var(--text)"}}>{u.nb_mois||0}</b> mois</span>
+        <span style={{color:"var(--muted)"}}>📋 <b style={{color:"var(--text)"}}>{u.nb_transactions||0}</b> transactions</span>
+        <span style={{color:"var(--muted)"}}>💎 <b style={{color:"#F59E0B"}}>{u.nb_actifs||0}</b> actifs</span>
+        <span style={{color:"var(--muted)"}}>🎯 <b style={{color:"var(--cyan)"}}>{u.nb_objectifs||0}</b> objectifs</span>
+        {u.created_at && <span style={{color:"var(--muted)"}}>📝 Inscrit le <b style={{color:"var(--text)"}}>{(u.created_at||"").slice(0,10)}</b></span>}
+        {u.last_login && <span style={{color:"var(--muted)"}}>🔑 Dernière co. <b style={{color:"var(--text)"}}>{(u.last_login||"").slice(0,10)}</b></span>}
+      </div>
+
+      {/* ── KPIs financiers ── */}
+      <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+        {[
+          {l:"Revenus",           v:fm(revenus),      c:"#10B981", sub:selectedMois||"ce mois"},
+          {l:"Dépenses",          v:fm(depenses),     c:"#EF4444", sub:selectedMois||"ce mois"},
+          {l:"Allocations",       v:fm(allocations),  c:"#6366F1", sub:"investi+épargnés"},
+          {l:"Solde dispo",       v:fm(solde),        c: solde>=0?"var(--cyan)":"#EF4444", sub:"disponible"},
+          {l:"Total actifs",      v:fm(totalActifs),  c:"#F59E0B", sub:`${u.nb_actifs||0} actifs`},
+          {l:"Épargne objectifs", v:fm(u.total_epargne_obj||0), c:"#8B5CF6", sub:`${u.nb_objectifs||0} objectifs`},
+          {l:"Patrimoine net",    v:fm(patrimoineNet),c:"#EC4899", sub:"total"},
+          {l:"Taux épargne",      v:taux+"%",         c:tauxCol,   sub: taux>=20?"✅ bon":taux>0?"⚠️ faible":"—"},
+        ].map(k => (
+          <div key={k.l} style={{flex:"1 1 75px",minWidth:68,background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
+            <div style={{fontSize:15,fontWeight:800,color:k.c,fontFamily:"monospace",lineHeight:1}}>{k.v}</div>
+            <div style={{fontSize:8,color:"var(--muted)",marginTop:3}}>{k.sub}</div>
+            <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginTop:1}}>{k.l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Onglets ── */}
+      <div style={{ display:"flex", gap:4, marginBottom:10, flexWrap:"wrap" }}>
+        {tabBtn("budget",       `💵 Budget (${lignesRevenus.length}R / ${lignesDepenses.length}D)`)}
+        {tabBtn("objectifs",    `🎯 Objectifs (${objectifs.length || u.nb_objectifs || 0})`)}
+        {tabBtn("actifs",       `💎 Actifs (${actifs.length || u.nb_actifs || 0})`)}
+        {tabBtn("transactions", `📋 Transactions (${transactions.length || u.nb_transactions || 0})`)}
+        {tabBtn("historique",   `📈 Historique (${historique.length || u.nb_mois || 0} mois)`)}
+      </div>
+
+      {/* ── BUDGET ── */}
+      {openSection === "budget" && (
+        <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"1fr 1fr", gap:10 }}>
+          <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"12px 14px" }}>
+            <div style={{ fontWeight:700, color:"#10B981", fontSize:12, marginBottom:8 }}>
+              ↑ Revenus {selectedMois && `(${selectedMois})`} — {fm(revenus)} FCFA
+              {(u.revenu||0) > 0 && revenus === 0 && (
+                <span style={{marginLeft:8,fontSize:9,color:"var(--muted)",fontWeight:400}}>(déclaré : {fm(u.revenu)} FCFA/mois)</span>
+              )}
+            </div>
+            {lignesRevenus.length === 0
+              ? <div style={{color:"var(--muted)",fontSize:11}}>
+                  Aucun revenu saisi ce mois
+                  {(u.revenu||0) > 0 && <div style={{marginTop:6,color:"rgba(16,185,129,0.7)",fontSize:10}}>Revenu mensuel déclaré dans le profil : <b>{fm(u.revenu)} FCFA</b></div>}
+                </div>
+              : lignesRevenus.map((r, i) => (
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.04)",fontSize:11}}>
+                  <div>
+                    <span style={{fontWeight:600}}>{r.nom||"—"}</span>
+                    {r.recurrent && <span style={{marginLeft:6,fontSize:9,color:"#6366F1",background:"rgba(99,102,241,0.15)",padding:"1px 5px",borderRadius:3}}>🔄</span>}
+                    {r.categorie && <div style={{fontSize:9,color:"var(--muted)"}}>{r.categorie}</div>}
+                  </div>
+                  <span style={{fontWeight:700,color:"#10B981",whiteSpace:"nowrap",marginLeft:8}}>{fm(r.montant)} FCFA</span>
+                </div>
+              ))
+            }
+          </div>
+          <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"12px 14px" }}>
+            <div style={{ fontWeight:700, color:"#EF4444", fontSize:12, marginBottom:8 }}>
+              ↓ Dépenses — {fm(depenses)} FCFA
+            </div>
+            {lignesDepenses.length === 0
+              ? <div style={{color:"var(--muted)",fontSize:11}}>Aucune dépense saisie ce mois</div>
+              : lignesDepenses.map((d, i) => (
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.04)",fontSize:11}}>
+                  <div>
+                    <span style={{fontWeight:600}}>{d.nom||"—"}</span>
+                    {d.recurrent && <span style={{marginLeft:6,fontSize:9,color:"#6366F1",background:"rgba(99,102,241,0.15)",padding:"1px 5px",borderRadius:3}}>🔄</span>}
+                    {d.categorie && <span style={{marginLeft:6,fontSize:9,color:cc(d.categorie),background:"rgba(0,0,0,0.2)",padding:"1px 5px",borderRadius:3}}>{d.categorie}</span>}
+                  </div>
+                  <span style={{fontWeight:700,color:"#EF4444",whiteSpace:"nowrap",marginLeft:8}}>{fm(d.montant)} FCFA</span>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      )}
+
+      {/* ── OBJECTIFS ── */}
+      {openSection === "objectifs" && (
+        <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"14px" }}>
+          <div style={{fontWeight:700,color:"#8B5CF6",fontSize:12,marginBottom:10}}>
+            Épargne totale objectifs : {fm(u.total_epargne_obj||0)} FCFA — {objectifs.length || u.nb_objectifs || 0} objectif(s)
+          </div>
+          {objectifs.length === 0
+            ? <div style={{color:"var(--muted)",fontSize:11}}>
+                {(u.nb_objectifs||0) > 0
+                  ? `${u.nb_objectifs} objectif(s) — rechargez après redémarrage serveur pour le détail`
+                  : "Aucun objectif créé"}
+              </div>
+            : objectifs.map((o, i) => {
+              const p = pc(o.epargne, o.cible);
+              return (
+                <div key={i} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                    <span style={{fontWeight:700,fontSize:13}}>{o.icon} {o.nom}</span>
+                    <span style={{fontSize:11,color:p>=100?"#10B981":"var(--muted)"}}>{p>=100?"🎉 Atteint":p+"%"}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--muted)",marginBottom:5,flexWrap:"wrap",gap:4}}>
+                    <span>Épargné : <b style={{color:"var(--cyan)"}}>{fm(o.epargne)} FCFA</b></span>
+                    <span>Cible : <b style={{color:"#F59E0B"}}>{fm(o.cible)} FCFA</b></span>
+                    <span>Restant : <b style={{color:"#EF4444"}}>{fm(Math.max(0,o.cible-o.epargne))} FCFA</b></span>
+                  </div>
+                  <div style={{height:8,background:"rgba(255,255,255,0.07)",borderRadius:99}}>
+                    <div style={{height:8,width:`${p}%`,background:p>=100?"#10B981":"var(--cyan)",borderRadius:99,transition:"width 0.8s"}}/>
+                  </div>
+                </div>
+              );
+            })
+          }
+        </div>
+      )}
+
+      {/* ── ACTIFS ── */}
+      {openSection === "actifs" && (
+        <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"14px" }}>
+          <div style={{fontWeight:700,color:"#F59E0B",fontSize:12,marginBottom:10}}>
+            {u.nb_actifs||0} actif(s) — Valeur totale : <span style={{color:"#F59E0B",fontSize:14}}>{fm(totalActifs)} FCFA</span>
+            {(u.total_epargne_obj||0) > 0 && <span style={{color:"var(--muted)",fontWeight:400,fontSize:10,marginLeft:10}}>+ Épargne obj : {fm(u.total_epargne_obj)} FCFA</span>}
+          </div>
+          {actifs.length === 0
+            ? <div style={{color:"var(--muted)",fontSize:11}}>
+                {(u.nb_actifs||0) > 0
+                  ? <span>
+                      <b style={{color:"#F59E0B"}}>{u.nb_actifs} actifs</b> pour un total de <b style={{color:"#F59E0B"}}>{fm(totalActifs)} FCFA</b>
+                      <br/><span style={{fontSize:10,marginTop:4,display:"block",color:"rgba(255,255,255,0.3)"}}>Redémarrez le serveur pour voir le détail par actif</span>
+                    </span>
+                  : "Aucun actif enregistré"}
+              </div>
+            : actifs.map((a, i) => {
+              const pv = (a.valeurActuelle||0) - (a.valeurInitiale||a.valeurActuelle||0);
+              const pvPct = (a.valeurInitiale||0) > 0 ? Math.round(pv/(a.valeurInitiale)*100) : 0;
+              return (
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:11}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:12}}>{a.nom||"—"}</div>
+                    <div style={{fontSize:9,color:"rgba(0,200,255,0.5)",marginTop:1}}>
+                      {a.type} • {a.source==="app"?"via app":"manuel"}{a.dateAchat?` • ${a.dateAchat}`:""}
+                    </div>
+                    {(a.valeurInitiale||0) > 0 && a.valeurInitiale !== a.valeurActuelle && (
+                      <div style={{fontSize:9,color:"var(--muted)"}}>Achat : {fm(a.valeurInitiale)} FCFA</div>
+                    )}
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontWeight:800,color:"#F59E0B",fontSize:13}}>{fm(a.valeurActuelle)} FCFA</div>
+                    {pv !== 0 && <div style={{fontSize:10,color:pv>=0?"#10B981":"#EF4444",fontWeight:600}}>{pv>=0?"+":""}{fm(pv)} ({pvPct>=0?"+":""}{pvPct}%)</div>}
+                  </div>
+                </div>
+              );
+            })
+          }
+        </div>
+      )}
+
+      {/* ── TRANSACTIONS ── */}
+      {openSection === "transactions" && (
+        <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"14px" }}>
+          <div style={{fontWeight:700,color:"#6366F1",fontSize:12,marginBottom:10}}>
+            {u.nb_transactions||0} transaction(s) au total
+          </div>
+          {transactions.length === 0
+            ? <div style={{color:"var(--muted)",fontSize:11}}>
+                {(u.nb_transactions||0) > 0
+                  ? `${u.nb_transactions} transaction(s) — rechargez après redémarrage serveur pour le détail`
+                  : "Aucune transaction"}
+              </div>
+            : (
+              <div style={{overflowX:"auto",maxHeight:380,overflowY:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                  <thead style={{position:"sticky",top:0,background:"var(--card)"}}>
+                    <tr>
+                      {["Date","Mois","Type","Cible","Montant FCFA"].map(h => (
+                        <th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--muted)",fontSize:9,fontWeight:700,borderBottom:"1px solid rgba(0,200,255,0.1)"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.map((t, i) => (
+                      <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)",background:i%2===0?"transparent":"rgba(0,200,255,0.01)"}}>
+                        <td style={{padding:"5px 8px",color:"var(--muted)",whiteSpace:"nowrap"}}>{(t.date||"").slice(0,10)}</td>
+                        <td style={{padding:"5px 8px",color:"var(--muted)",fontSize:10}}>{t.mois||"—"}</td>
+                        <td style={{padding:"5px 8px"}}>
+                          <span style={{padding:"1px 6px",borderRadius:4,fontSize:9,fontWeight:700,
+                            background:t.type==="investissement"?"rgba(99,102,241,0.2)":t.type==="objectif"?"rgba(0,200,255,0.12)":t.type==="retrait_objectif"?"rgba(239,68,68,0.12)":"rgba(255,255,255,0.06)",
+                            color:t.type==="investissement"?"#6366F1":t.type==="objectif"?"var(--cyan)":t.type==="retrait_objectif"?"#EF4444":"var(--muted)",
+                          }}>{t.type}</span>
+                        </td>
+                        <td style={{padding:"5px 8px",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.cible||"—"}</td>
+                        <td style={{padding:"5px 8px",fontWeight:700,color:"var(--cyan)",textAlign:"right",whiteSpace:"nowrap"}}>{fm(t.montant)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          }
+        </div>
+      )}
+
+      {/* ── HISTORIQUE MOIS ── */}
+      {openSection === "historique" && (
+        <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"14px" }}>
+          <div style={{fontWeight:700,color:"#EC4899",fontSize:12,marginBottom:10}}>
+            {historique.length || u.nb_mois || 0} mois de données
+          </div>
+          {historique.length === 0
+            ? <div style={{color:"var(--muted)",fontSize:11}}>
+                {(u.nb_mois||0) > 0
+                  ? `${u.nb_mois} mois enregistrés — rechargez après redémarrage serveur pour le détail`
+                  : "Aucun historique disponible"}
+              </div>
+            : (
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                  <thead>
+                    <tr>
+                      {["Mois","Revenus","Dépenses","Allocations","Solde","Lignes R","Lignes D"].map(h => (
+                        <th key={h} style={{textAlign:"right",padding:"5px 8px",color:"var(--muted)",fontSize:9,fontWeight:700,borderBottom:"1px solid rgba(0,200,255,0.1)"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historique.map((m, i) => {
+                      const sol = m.revenus - m.depenses - (m.allocations||0);
+                      return (
+                        <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)",background:i%2===0?"transparent":"rgba(0,200,255,0.01)"}}>
+                          <td style={{padding:"5px 8px",fontWeight:700,color:m.mois===u.mois_actif?"var(--cyan)":"var(--text)",textAlign:"left"}}>{m.mois}{m.mois===u.mois_actif?" ◀":""}</td>
+                          <td style={{padding:"5px 8px",textAlign:"right",color:"#10B981",fontWeight:600}}>{fm(m.revenus)}</td>
+                          <td style={{padding:"5px 8px",textAlign:"right",color:"#EF4444",fontWeight:600}}>{fm(m.depenses)}</td>
+                          <td style={{padding:"5px 8px",textAlign:"right",color:"#6366F1"}}>{fm(m.allocations||0)}</td>
+                          <td style={{padding:"5px 8px",textAlign:"right",fontWeight:700,color:sol>=0?"var(--cyan)":"#EF4444"}}>{fm(sol)}</td>
+                          <td style={{padding:"5px 8px",textAlign:"right",color:"var(--muted)"}}>{m.nb_revenus||0}</td>
+                          <td style={{padding:"5px 8px",textAlign:"right",color:"var(--muted)"}}>{m.nb_depenses||0}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          }
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+
+function AdminPanel({ authUser }) {
+  const isMobile = useMobile();
+  const [stats,    setStats]    = React.useState(null);
+  const [users,    setUsers]    = React.useState([]);
+  const [search,   setSearch]   = React.useState("");
+  const [loading,  setLoading]  = React.useState(true);
+  const [error,    setError]    = React.useState(null);
+  const [expanded, setExpanded] = React.useState(null);
+  const [confirms, setConfirms] = React.useState({});
+  const [msg,      setMsg]      = React.useState(null);
+  const [mounted,  setMounted]  = React.useState(false);
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 60);
+    return () => clearTimeout(t);
+  }, []);
+
+  const getHeaders = () => {
+    const tok = localStorage.getItem("patrimoine_token") || sessionStorage.getItem("patrimoine_token") || "";
+    return { "Content-Type": "application/json", Authorization: `Bearer ${tok}` };
+  };
+
+  const fetchAll = React.useCallback(() => {
+    setLoading(true); setError(null);
+    Promise.all([
+      fetch("/api/admin/stats",  { headers: getHeaders() }).then(r => r.json()),
+      fetch("/api/admin/users",  { headers: getHeaders() }).then(r => r.json()),
+    ]).then(([s, u]) => {
+      if (s.error) { setError(s.error); setLoading(false); return; }
+      setStats(s);
+      setUsers(Array.isArray(u.users) ? u.users : []);
+      setLoading(false);
+    }).catch(e => { setError(e.message); setLoading(false); });
+  }, []);
+
+  React.useEffect(() => { if (mounted) fetchAll(); }, [mounted]);
+
+  const showMsg = (m, ok=true) => { setMsg({text:m,ok}); setTimeout(()=>setMsg(null),3500); };
+
+  const doAction = (uid, action) => {
+    const urls = {
+      delete:       [`/api/admin/users/${uid}`,              "DELETE", "Utilisateur supprime"],
+      resetData:    [`/api/admin/users/${uid}/reset-data`,   "POST",   "Donnees effacees"],
+      toggleAdmin:  [`/api/admin/users/${uid}/toggle-admin`, "POST",   "Droits modifies"],
+    };
+    const [url, method, ok] = urls[action];
+    fetch(url, { method, headers: getHeaders() })
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { showMsg(d.error, false); return; }
+        showMsg(ok);
+        setConfirms({});
+        fetchAll();
+      })
+      .catch(e => showMsg(e.message, false));
+  };
+
+  const ab = _adminActBtn;
+  const filtered = users.filter(u =>
+    (u.email||"").toLowerCase().includes(search.toLowerCase()) ||
+    (u.nom||"").toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (!mounted || loading) return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:200,color:"var(--muted)",fontSize:13}}>
+      <span style={{animation:"spin 1s linear infinite",marginRight:10,display:"inline-block"}}>&#9696;</span>
+      Chargement du panel admin...
+    </div>
+  );
+
+  if (error) return (
+    <div style={{padding:20,background:"rgba(239,68,68,0.1)",borderRadius:12,margin:16,color:"#EF4444"}}>
+      <b>Erreur :</b> {error}
+      <br/><button onClick={fetchAll} style={{marginTop:10,...ab("#EF4444")}}>Reessayer</button>
+    </div>
+  );
+
+  const statCards = stats ? [
+    { l:"Utilisateurs",  v: stats.total_users  || 0, c:"var(--cyan)",  icon:"&#128100;" },
+    { l:"Actifs 30j",    v: stats.active_users || 0, c:"#10B981",      icon:"&#9679;" },
+    { l:"Actifs 7j",     v: stats.active_7j    || 0, c:"#F59E0B",      icon:"&#9650;" },
+    { l:"Nouveaux 30j",  v: stats.new_30j      || 0, c:"#8B5CF6",      icon:"&#10010;" },
+    { l:"Admins",        v: stats.total_admins || 0, c:"#EC4899",      icon:"&#9733;" },
+  ] : [];
+
+  return (
+    <div style={{padding: isMobile?"10px 8px":"16px 20px", maxWidth:1100, margin:"0 auto"}}>
+
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <div>
+          <h2 style={{margin:0,fontSize:isMobile?16:20,fontWeight:800,color:"var(--gold)"}}>
+            &#9881; Panel Administration
+          </h2>
+          <div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>
+            {authUser.email} &mdash; acces restreint
+          </div>
+        </div>
+        <button onClick={fetchAll} style={{...ab("var(--cyan)"),padding:"6px 14px",fontSize:11}}>
+          &#8635; Actualiser
+        </button>
+      </div>
+
+      {/* Message flash */}
+      {msg && (
+        <div style={{
+          padding:"10px 16px",borderRadius:10,marginBottom:14,fontSize:12,fontWeight:700,
+          background: msg.ok ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+          color:       msg.ok ? "#10B981"                : "#EF4444",
+          border:`1px solid ${msg.ok ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+        }}>{msg.text}</div>
+      )}
+
+      {/* Stats KPI */}
+      {stats && (
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
+          {statCards.map(s => (
+            <div key={s.l} style={{
+              flex:"1 1 90px", minWidth:80, background:"var(--card)", borderRadius:12,
+              padding:"12px 10px", textAlign:"center",
+              border:"1px solid rgba(255,255,255,0.06)",
+            }}>
+              <div style={{fontSize:18,marginBottom:4}} dangerouslySetInnerHTML={{__html:s.icon}}/>
+              <div style={{fontSize:22,fontWeight:900,color:s.c,lineHeight:1}}>{s.v}</div>
+              <div style={{fontSize:9,color:"var(--muted)",marginTop:4,fontWeight:700}}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Barre de recherche */}
+      <div style={{marginBottom:14}}>
+        <input
+          value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="Rechercher par email ou nom..."
+          style={{
+            width:"100%", padding:"9px 14px", borderRadius:10, fontSize:12,
+            background:"var(--card)", border:"1px solid rgba(0,200,255,0.2)",
+            color:"var(--text)", outline:"none", boxSizing:"border-box",
+          }}
+        />
+      </div>
+
+      {/* Liste utilisateurs */}
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {filtered.length === 0 && (
+          <div style={{textAlign:"center",color:"var(--muted)",padding:30,fontSize:12}}>
+            Aucun utilisateur trouve
+          </div>
+        )}
+        {filtered.map(u => {
+          const isOpen  = expanded === u.id;
+          const isAdmin = !!u.is_admin;
+          const conf    = confirms[u.id] || null;
+
+          return (
+            <div key={u.id} style={{
+              background:"var(--card)", borderRadius:12,
+              border:`1px solid ${isOpen ? "rgba(0,200,255,0.25)" : "rgba(255,255,255,0.06)"}`,
+              overflow:"hidden", transition:"border-color 0.2s",
+            }}>
+              {/* Ligne principale */}
+              <div
+                onClick={() => setExpanded(isOpen ? null : u.id)}
+                style={{
+                  display:"flex", alignItems:"center", gap:10, padding:"11px 14px",
+                  cursor:"pointer", userSelect:"none",
+                  background: isOpen ? "rgba(0,200,255,0.04)" : "transparent",
+                }}
+              >
+                {/* Avatar */}
+                <div style={{
+                  width:34, height:34, borderRadius:17,
+                  background: isAdmin ? "rgba(236,72,153,0.2)" : "rgba(0,200,255,0.1)",
+                  border:`2px solid ${isAdmin ? "#EC4899" : "rgba(0,200,255,0.3)"}`,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:14, fontWeight:800, color: isAdmin ? "#EC4899" : "var(--cyan)",
+                  flexShrink:0,
+                }}>
+                  {(u.nom||u.email||"?")[0].toUpperCase()}
+                </div>
+
+                {/* Infos */}
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                    <span style={{fontWeight:700,fontSize:13,color:"var(--text)"}}>{u.nom||"Sans nom"}</span>
+                    {isAdmin && (
+                      <span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:"rgba(236,72,153,0.2)",color:"#EC4899",fontWeight:700}}>
+                        ADMIN
+                      </span>
+                    )}
+                  </div>
+                  <div style={{fontSize:10,color:"var(--muted)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {u.email}
+                  </div>
+                  {u.last_login && (
+                    <div style={{fontSize:9,color:"rgba(255,255,255,0.25)",marginTop:1}}>
+                      Derniere co. : {(u.last_login||"").slice(0,10)}
+                    </div>
+                  )}
+                </div>
+
+                {/* KPIs inline desktop */}
+                {!isMobile && (
+                  <div style={{ display:"flex", gap:14, flexShrink:0 }}>
+                    {[
+                      { v:_adminFmtM(u.revenus),        l:"Revenus",    c:"#10B981" },
+                      { v:_adminFmtM(u.solde),          l:"Solde",      c: (u.solde||0)>=0?"var(--cyan)":"#EF4444" },
+                      { v:_adminFmtM(u.patrimoine_net), l:"Patrimoine", c:"#F59E0B" },
+                      { v:(u.nb_actifs||0)+" actifs",   l:"Actifs",     c:"rgba(255,255,255,0.5)" },
+                      { v:(u.nb_mois||0)+" mois",       l:"Historique", c:"rgba(255,255,255,0.5)" },
+                    ].map(k => (
+                      <div key={k.l} style={{textAlign:"right"}}>
+                        <div style={{fontSize:13,fontWeight:800,color:k.c,lineHeight:1}}>{k.v}</div>
+                        <div style={{fontSize:8,color:"var(--muted)",marginTop:2}}>{k.l}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Chevron */}
+                <span style={{fontSize:14,color:"var(--muted)",transition:"transform 0.2s",transform:isOpen?"rotate(180deg)":"none",flexShrink:0}}>
+                  &#9660;
+                </span>
+              </div>
+
+              {/* Actions rapides */}
+              {isOpen && (
+                <div onClick={e=>e.stopPropagation()} style={{
+                  display:"flex", gap:6, padding:"8px 14px 10px",
+                  borderTop:"1px solid rgba(255,255,255,0.05)",
+                  flexWrap:"wrap", background:"rgba(0,0,0,0.15)",
+                }}>
+                  {/* Toggle admin */}
+                  {conf === "toggleAdmin" ? (
+                    <span style={{display:"flex",gap:5,alignItems:"center"}}>
+                      <span style={{fontSize:10,color:"var(--muted)"}}>Confirmer ?</span>
+                      <button onClick={()=>doAction(u.id,"toggleAdmin")} style={ab("#EC4899")}>Oui &#10003;</button>
+                      <button onClick={()=>setConfirms(c=>({...c,[u.id]:null}))} style={ab("var(--muted)")}>Non</button>
+                    </span>
+                  ) : (
+                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"toggleAdmin"}))} style={ab(isAdmin?"#EF4444":"#EC4899")}>
+                      {isAdmin ? "&#10006; Retirer admin" : "&#9733; Promouvoir admin"}
+                    </button>
+                  )}
+
+                  {/* Reset data */}
+                  {conf === "resetData" ? (
+                    <span style={{display:"flex",gap:5,alignItems:"center"}}>
+                      <span style={{fontSize:10,color:"#F59E0B"}}>Effacer toutes les donnees ?</span>
+                      <button onClick={()=>doAction(u.id,"resetData")} style={ab("#F59E0B")}>Oui &#10003;</button>
+                      <button onClick={()=>setConfirms(c=>({...c,[u.id]:null}))} style={ab("var(--muted)")}>Non</button>
+                    </span>
+                  ) : (
+                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"resetData"}))} style={ab("#F59E0B")}>
+                      &#8635; Reset donnees
+                    </button>
+                  )}
+
+                  {/* Delete */}
+                  {conf === "delete" ? (
+                    <span style={{display:"flex",gap:5,alignItems:"center"}}>
+                      <span style={{fontSize:10,color:"#EF4444"}}>Supprimer definitivement ?</span>
+                      <button onClick={()=>doAction(u.id,"delete")} style={ab("#EF4444")}>Oui &#10003;</button>
+                      <button onClick={()=>setConfirms(c=>({...c,[u.id]:null}))} style={ab("var(--muted)")}>Non</button>
+                    </span>
+                  ) : (
+                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"delete"}))} style={ab("#EF4444")}>
+                      &#128465; Supprimer
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Detail complet */}
+              {isOpen && <AdminUserDetail u={u} isMobile={isMobile} />}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
-</script>
-</body>
+    </script>
+  </body>
 </html>
