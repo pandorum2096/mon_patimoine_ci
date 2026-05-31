@@ -260,6 +260,177 @@
         max-width: 100% !important;
       }
     }
+
+    /* ══════════════════════════════════════════════════════════
+       THÈME CLAIR — surcharges complètes
+    ══════════════════════════════════════════════════════════ */
+    body.theme-light {
+      background-image:
+        linear-gradient(rgba(8,120,170,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(8,120,170,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* ── Structure ── */
+    body.theme-light nav {
+      background: rgba(240,244,248,0.97) !important;
+      border-bottom: 1px solid rgba(8,120,170,0.15) !important;
+    }
+    body.theme-light header {
+      background: rgba(240,244,248,0.97) !important;
+      border-bottom: 1px solid rgba(8,120,170,0.15) !important;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07) !important;
+    }
+
+    /* ── Toutes les cards (inline style rgba(11,22,40)) ── */
+    body.theme-light [style*="rgba(11, 22, 40"],
+    body.theme-light [style*="rgba(11,22,40"] {
+      background: #FFFFFF !important;
+      border-color: rgba(8,120,170,0.15) !important;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07) !important;
+    }
+    /* Surfaces secondaires rgba(0,0,0,0.2/0.3) → gris très clair */
+    body.theme-light [style*="rgba(0, 0, 0, 0.2"],
+    body.theme-light [style*="rgba(0,0,0,0.2"],
+    body.theme-light [style*="rgba(0, 0, 0, 0.15"],
+    body.theme-light [style*="rgba(0,0,0,0.15"],
+    body.theme-light [style*="rgba(0, 0, 0, 0.25"],
+    body.theme-light [style*="rgba(0,0,0,0.25"],
+    body.theme-light [style*="rgba(0, 0, 0, 0.3"],
+    body.theme-light [style*="rgba(0,0,0,0.3"] {
+      background: #F0F4F8 !important;
+    }
+    /* Hero banners cyan sombres */
+    body.theme-light [style*="rgba(0, 200, 255, 0.04"],
+    body.theme-light [style*="rgba(0,200,255,0.04"],
+    body.theme-light [style*="rgba(0, 200, 255, 0.06"],
+    body.theme-light [style*="rgba(0,200,255,0.06"],
+    body.theme-light [style*="rgba(0, 200, 255, 0.08"],
+    body.theme-light [style*="rgba(0,200,255,0.08"] {
+      background: rgba(8,120,170,0.06) !important;
+    }
+    /* Bordures cyan invisibles sur fond clair */
+    body.theme-light [style*="border: 1px solid rgba(0, 200, 255"],
+    body.theme-light [style*="border: 1px solid rgba(0,200,255"],
+    body.theme-light [style*="borderColor: rgba(0,200,255"],
+    body.theme-light [style*="border-color: rgba(0, 200, 255"] {
+      border-color: rgba(8,120,170,0.2) !important;
+    }
+    /* Barres de fond progress bars */
+    body.theme-light [style*="rgba(0, 200, 255, 0.1"],
+    body.theme-light [style*="rgba(0,200,255,0.1"] {
+      background: rgba(8,120,170,0.1) !important;
+    }
+    body.theme-light [style*="rgba(255, 255, 255, 0.06"],
+    body.theme-light [style*="rgba(255,255,255,0.06"],
+    body.theme-light [style*="rgba(255, 255, 255, 0.07"],
+    body.theme-light [style*="rgba(255,255,255,0.07"] {
+      background: rgba(8,120,170,0.08) !important;
+    }
+    /* Séparateurs */
+    body.theme-light [style*="rgba(0, 200, 255, 0.08"],
+    body.theme-light [style*="rgba(0,200,255,0.08"] {
+      border-color: rgba(8,120,170,0.12) !important;
+      background: rgba(8,120,170,0.06) !important;
+    }
+    /* Shimmer line */
+    body.theme-light .shimmer-line {
+      background: linear-gradient(90deg, transparent, rgba(8,120,170,0.3), transparent) !important;
+    }
+
+    /* ── Inputs ── */
+    body.theme-light input, body.theme-light select, body.theme-light textarea {
+      background: #F8FAFD !important;
+      color: #1A2436 !important;
+      border-color: #CBD8EA !important;
+    }
+    body.theme-light input::placeholder { color: #8EA8C0 !important; }
+    body.theme-light input:focus, body.theme-light select:focus {
+      box-shadow: 0 0 0 2px rgba(8,120,170,0.2) !important;
+    }
+
+    /* ── Typographie ── */
+    body.theme-light .neon-text   { animation: none !important; text-shadow: none !important; }
+    body.theme-light .nav-tab.active { text-shadow: none !important; }
+    body.theme-light .label-cyber { color: #4A6A88 !important; }
+    body.theme-light .glass       { background: rgba(255,255,255,0.9) !important; box-shadow: 0 2px 16px rgba(0,0,0,0.08) !important; }
+
+    /* ── Scrollbar ── */
+    body.theme-light ::-webkit-scrollbar-thumb { background: rgba(8,120,170,0.25); }
+    body.theme-light ::-webkit-scrollbar-thumb:hover { background: rgba(8,120,170,0.45); }
+
+    /* ── Modal ── */
+    body.theme-light .modal-box {
+      background: #FFFFFF !important;
+      border-color: rgba(8,120,170,0.2) !important;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15) !important;
+    }
+    body.theme-light .modal-overlay { background: rgba(0,0,0,0.35) !important; }
+
+    /* ── Stat row / séparateurs ── */
+    body.theme-light .stat-row { border-bottom-color: rgba(8,120,170,0.1) !important; }
+
+    /* ── CartesianGrid recharts ── */
+    body.theme-light .recharts-cartesian-grid line { stroke: rgba(8,120,170,0.1) !important; }
+    body.theme-light .recharts-tooltip-wrapper .recharts-default-tooltip {
+      background: #FFFFFF !important;
+      border-color: rgba(8,120,170,0.2) !important;
+      color: #1A2436 !important;
+    }
+    body.theme-light .recharts-legend-item-text { color: #5A6E88 !important; }
+    body.theme-light .recharts-text { fill: #5A6E88 !important; }
+
+    /* ── Textes hardcodés blanc/clair → sombres en mode clair ── */
+    /* #8BBAD8 — bleu pâle (illisible sur fond clair) */
+    body.theme-light [style*="color: #8BBAD8"],
+    body.theme-light [style*="color:#8BBAD8"] { color: #5A6E88 !important; }
+
+    /* rgba(255,255,255,0.3/0.25/0.4) — blanc fantôme → gris moyen */
+    body.theme-light [style*="color: rgba(255, 255, 255, 0.3"],
+    body.theme-light [style*="color: rgba(255,255,255,0.3"],
+    body.theme-light [style*="color: rgba(255, 255, 255, 0.25"],
+    body.theme-light [style*="color: rgba(255,255,255,0.25"],
+    body.theme-light [style*="color: rgba(255, 255, 255, 0.4"],
+    body.theme-light [style*="color: rgba(255,255,255,0.4"] { color: #7A90A8 !important; }
+
+    /* rgba(255,255,255,0.5/0.6/0.7) — blanc semi-transparent → gris foncé */
+    body.theme-light [style*="color: rgba(255, 255, 255, 0.5"],
+    body.theme-light [style*="color: rgba(255,255,255,0.5"],
+    body.theme-light [style*="color: rgba(255, 255, 255, 0.6"],
+    body.theme-light [style*="color: rgba(255,255,255,0.6"],
+    body.theme-light [style*="color: rgba(255, 255, 255, 0.7"],
+    body.theme-light [style*="color: rgba(255,255,255,0.7"] { color: #4A6A88 !important; }
+
+    /* rgba(255,255,255,0.8/0.9) — quasi blanc → texte foncé */
+    body.theme-light [style*="color: rgba(255, 255, 255, 0.8"],
+    body.theme-light [style*="color: rgba(255,255,255,0.8"],
+    body.theme-light [style*="color: rgba(255, 255, 255, 0.9"],
+    body.theme-light [style*="color: rgba(255,255,255,0.9"] { color: #2A3A52 !important; }
+
+    /* #D8E8FF — bleu très pâle (onboarding / titres) → texte principal foncé */
+    body.theme-light [style*="color: #D8E8FF"],
+    body.theme-light [style*="color:#D8E8FF"] { color: #1A2436 !important; }
+
+    /* Backgrounds rgba(255,255,255,0.04/05/06) → gris très clair */
+    body.theme-light [style*="background: rgba(255, 255, 255, 0.04"],
+    body.theme-light [style*="background: rgba(255,255,255,0.04"],
+    body.theme-light [style*="background: rgba(255, 255, 255, 0.05"],
+    body.theme-light [style*="background: rgba(255,255,255,0.05"] { background: rgba(8,120,170,0.06) !important; }
+
+    /* Séparateurs border rgba(255,255,255,...) → bleu léger */
+    body.theme-light [style*="border-bottom: 1px solid rgba(255, 255, 255"],
+    body.theme-light [style*="border-bottom: 1px solid rgba(255,255,255"],
+    body.theme-light [style*="borderBottom: \"1px solid rgba(255,255,255"] { border-bottom-color: rgba(8,120,170,0.12) !important; }
+
+    /* #050913 dans les textes de boutons actifs → blanc */
+    body.theme-light [style*="color: #050913"],
+    body.theme-light [style*="color:#050913"],
+    body.theme-light [style*="color: #0A0F1A"],
+    body.theme-light [style*="color:#0A0F1A"] { color: #FFFFFF !important; }
+
+    /* label-cyber générique */
+    body.theme-light [style*="color: #8BBAD8"],
+    body.theme-light [style*="color: \"#8BBAD8\""] { color: #4A6A88 !important; }
   </style>
 </head>
 <body>
@@ -697,26 +868,31 @@ const THEMES = {
     "--purple":  "#7B5FFF",
   },
   light: {
-    "--bg":      "#EEF4FF",
+    "--bg":      "#F0F4F8",
     "--card":    "#FFFFFF",
-    "--surface": "#E4EDFF",
-    "--border":  "#C0D4F0",
-    "--text":    "#0A1428",
-    "--muted":   "#4A70A0",
-    "--gold":    "#0090CC",   // deeper cyan for light
-    "--red":     "#D02050",
-    "--green":   "#008A50",
-    "--blue":    "#2060D0",
-    "--accent":  "#5030C0",
-    "--cream":   "#D8E8FF",
-    "--cyan":    "#0090CC",
-    "--purple":  "#5030C0",
+    "--surface": "#E8EEF6",
+    "--border":  "#CBD8EA",
+    "--text":    "#1A2436",
+    "--muted":   "#5A6E88",
+    "--gold":    "#B07A10",
+    "--red":     "#C0283C",
+    "--green":   "#1A7A48",
+    "--blue":    "#1A52B0",
+    "--accent":  "#4A28A8",
+    "--cream":   "#DDEAFF",
+    "--cyan":    "#0878AA",
+    "--purple":  "#5A30B8",
   }
 };
 
 function applyTheme(mode) {
   const vars = THEMES[mode];
   Object.entries(vars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
+  if (mode === "light") {
+    document.body.classList.add("theme-light");
+  } else {
+    document.body.classList.remove("theme-light");
+  }
 }
 // ─── STYLES GLOBAUX ─────────────────────────────────────────────────────────────
 const G = {
@@ -4201,7 +4377,7 @@ function TabProfil({ data, setData, mois }) {
       {/* ── Hero card ── */}
       <div style={{
         borderRadius: 16, border: `1px solid ${pm.border}`,
-        background: `linear-gradient(135deg, #0A1628 0%, #050913 60%, #0A0520 100%)`,
+        background: `linear-gradient(135deg, ${pm.color}10 0%, var(--card) 60%, var(--bg) 100%)`,
         position: "relative", overflow: "hidden", marginBottom: 16,
       }}>
         {/* Barre couleur profil en haut */}
@@ -5184,10 +5360,7 @@ function AdminPanel({ authUser }) {
   const [msg,      setMsg]      = React.useState(null);
   const [mounted,  setMounted]  = React.useState(false);
 
-  React.useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 60);
-    return () => clearTimeout(t);
-  }, []);
+  React.useEffect(() => { const t = setTimeout(() => setMounted(true), 60); return () => clearTimeout(t); }, []);
 
   const getHeaders = () => {
     const tok = localStorage.getItem("patrimoine_token") || sessionStorage.getItem("patrimoine_token") || "";
@@ -5197,8 +5370,8 @@ function AdminPanel({ authUser }) {
   const fetchAll = React.useCallback(() => {
     setLoading(true); setError(null);
     Promise.all([
-      fetch("/api/admin/stats",  { headers: getHeaders() }).then(r => r.json()),
-      fetch("/api/admin/users",  { headers: getHeaders() }).then(r => r.json()),
+      fetch("/api/admin/stats", { headers: getHeaders() }).then(r => r.json()),
+      fetch("/api/admin/users", { headers: getHeaders() }).then(r => r.json()),
     ]).then(([s, u]) => {
       if (s.error) { setError(s.error); setLoading(false); return; }
       setStats(s);
@@ -5213,19 +5386,14 @@ function AdminPanel({ authUser }) {
 
   const doAction = (uid, action) => {
     const urls = {
-      delete:       [`/api/admin/users/${uid}`,              "DELETE", "Utilisateur supprime"],
-      resetData:    [`/api/admin/users/${uid}/reset-data`,   "POST",   "Donnees effacees"],
-      toggleAdmin:  [`/api/admin/users/${uid}/toggle-admin`, "POST",   "Droits modifies"],
+      delete:      [`/api/admin/users/${uid}`,              "DELETE", "Utilisateur supprime"],
+      resetData:   [`/api/admin/users/${uid}/reset-data`,   "POST",   "Donnees effacees"],
+      toggleAdmin: [`/api/admin/users/${uid}/toggle-admin`, "POST",   "Droits modifies"],
     };
     const [url, method, ok] = urls[action];
     fetch(url, { method, headers: getHeaders() })
       .then(r => r.json())
-      .then(d => {
-        if (d.error) { showMsg(d.error, false); return; }
-        showMsg(ok);
-        setConfirms({});
-        fetchAll();
-      })
+      .then(d => { if (d.error) { showMsg(d.error, false); return; } showMsg(ok); setConfirms({}); fetchAll(); })
       .catch(e => showMsg(e.message, false));
   };
 
@@ -5237,8 +5405,7 @@ function AdminPanel({ authUser }) {
 
   if (!mounted || loading) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:200,color:"var(--muted)",fontSize:13}}>
-      <span style={{animation:"spin 1s linear infinite",marginRight:10,display:"inline-block"}}>&#9696;</span>
-      Chargement du panel admin...
+      <span style={{marginRight:10}}>&#9696;</span> Chargement du panel admin...
     </div>
   );
 
@@ -5250,11 +5417,11 @@ function AdminPanel({ authUser }) {
   );
 
   const statCards = stats ? [
-    { l:"Utilisateurs",  v: stats.total_users  || 0, c:"var(--cyan)",  icon:"&#128100;" },
-    { l:"Actifs 30j",    v: stats.active_users || 0, c:"#10B981",      icon:"&#9679;" },
-    { l:"Actifs 7j",     v: stats.active_7j    || 0, c:"#F59E0B",      icon:"&#9650;" },
-    { l:"Nouveaux 30j",  v: stats.new_30j      || 0, c:"#8B5CF6",      icon:"&#10010;" },
-    { l:"Admins",        v: stats.total_admins || 0, c:"#EC4899",      icon:"&#9733;" },
+    { l:"Utilisateurs", v: stats.total_users  || 0, c:"var(--cyan)", icon:"&#128100;" },
+    { l:"Actifs 30j",   v: stats.active_users || 0, c:"#10B981",     icon:"&#9679;"   },
+    { l:"Actifs 7j",    v: stats.active_7j    || 0, c:"#F59E0B",     icon:"&#9650;"   },
+    { l:"Nouveaux 30j", v: stats.new_30j      || 0, c:"#8B5CF6",     icon:"&#10010;"  },
+    { l:"Admins",       v: stats.total_admins || 0, c:"#EC4899",     icon:"&#9733;"   },
   ] : [];
 
   return (
@@ -5263,37 +5430,27 @@ function AdminPanel({ authUser }) {
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
         <div>
-          <h2 style={{margin:0,fontSize:isMobile?16:20,fontWeight:800,color:"var(--gold)"}}>
-            &#9881; Panel Administration
-          </h2>
-          <div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>
-            {authUser.email}
-          </div>
+          <h2 style={{margin:0,fontSize:isMobile?16:20,fontWeight:800,color:"var(--gold)"}}>&#9881; Panel Administration</h2>
+          <div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>{authUser.email}</div>
         </div>
-        <button onClick={fetchAll} style={{...ab("var(--cyan)"),padding:"6px 14px",fontSize:11}}>
-          &#8635; Actualiser
-        </button>
+        <button onClick={fetchAll} style={{...ab("var(--cyan)"),padding:"6px 14px",fontSize:11}}>&#8635; Actualiser</button>
       </div>
 
-      {/* Message flash */}
+      {/* Flash */}
       {msg && (
-        <div style={{
-          padding:"10px 16px",borderRadius:10,marginBottom:14,fontSize:12,fontWeight:700,
-          background: msg.ok ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
-          color:       msg.ok ? "#10B981"                : "#EF4444",
-          border:`1px solid ${msg.ok ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
-        }}>{msg.text}</div>
+        <div style={{padding:"10px 16px",borderRadius:10,marginBottom:14,fontSize:12,fontWeight:700,
+          background: msg.ok?"rgba(16,185,129,0.15)":"rgba(239,68,68,0.15)",
+          color: msg.ok?"#10B981":"#EF4444",
+          border:`1px solid ${msg.ok?"rgba(16,185,129,0.3)":"rgba(239,68,68,0.3)"}`}}>
+          {msg.text}
+        </div>
       )}
 
-      {/* Stats KPI */}
+      {/* Stats */}
       {stats && (
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
           {statCards.map(s => (
-            <div key={s.l} style={{
-              flex:"1 1 90px", minWidth:80, background:"var(--card)", borderRadius:12,
-              padding:"12px 10px", textAlign:"center",
-              border:"1px solid rgba(255,255,255,0.06)",
-            }}>
+            <div key={s.l} style={{flex:"1 1 90px",minWidth:80,background:"var(--card)",borderRadius:12,padding:"12px 10px",textAlign:"center",border:"1px solid rgba(255,255,255,0.06)"}}>
               <div style={{fontSize:18,marginBottom:4}} dangerouslySetInnerHTML={{__html:s.icon}}/>
               <div style={{fontSize:22,fontWeight:900,color:s.c,lineHeight:1}}>{s.v}</div>
               <div style={{fontSize:9,color:"var(--muted)",marginTop:4,fontWeight:700}}>{s.l}</div>
@@ -5302,87 +5459,51 @@ function AdminPanel({ authUser }) {
         </div>
       )}
 
-      {/* Barre de recherche */}
+      {/* Recherche */}
       <div style={{marginBottom:14}}>
-        <input
-          value={search} onChange={e=>setSearch(e.target.value)}
+        <input value={search} onChange={e=>setSearch(e.target.value)}
           placeholder="Rechercher par email ou nom..."
-          style={{
-            width:"100%", padding:"9px 14px", borderRadius:10, fontSize:12,
-            background:"var(--card)", border:"1px solid rgba(0,200,255,0.2)",
-            color:"var(--text)", outline:"none", boxSizing:"border-box",
-          }}
-        />
+          style={{width:"100%",padding:"9px 14px",borderRadius:10,fontSize:12,background:"var(--card)",
+            border:"1px solid rgba(0,200,255,0.2)",color:"var(--text)",outline:"none",boxSizing:"border-box"}}/>
       </div>
 
-      {/* Liste utilisateurs */}
+      {/* Liste */}
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
         {filtered.length === 0 && (
-          <div style={{textAlign:"center",color:"var(--muted)",padding:30,fontSize:12}}>
-            Aucun utilisateur trouve
-          </div>
+          <div style={{textAlign:"center",color:"var(--muted)",padding:30,fontSize:12}}>Aucun utilisateur trouve</div>
         )}
         {filtered.map(u => {
           const isOpen  = expanded === u.id;
-          const isAdmin = !!u.is_admin;
+          const isAdm   = !!u.is_admin;
           const conf    = confirms[u.id] || null;
-
           return (
-            <div key={u.id} style={{
-              background:"var(--card)", borderRadius:12,
-              border:`1px solid ${isOpen ? "rgba(0,200,255,0.25)" : "rgba(255,255,255,0.06)"}`,
-              overflow:"hidden", transition:"border-color 0.2s",
-            }}>
-              {/* Ligne principale */}
-              <div
-                onClick={() => setExpanded(isOpen ? null : u.id)}
-                style={{
-                  display:"flex", alignItems:"center", gap:10, padding:"11px 14px",
-                  cursor:"pointer", userSelect:"none",
-                  background: isOpen ? "rgba(0,200,255,0.04)" : "transparent",
-                }}
-              >
-                {/* Avatar */}
-                <div style={{
-                  width:34, height:34, borderRadius:17,
-                  background: isAdmin ? "rgba(236,72,153,0.2)" : "rgba(0,200,255,0.1)",
-                  border:`2px solid ${isAdmin ? "#EC4899" : "rgba(0,200,255,0.3)"}`,
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontSize:14, fontWeight:800, color: isAdmin ? "#EC4899" : "var(--cyan)",
-                  flexShrink:0,
-                }}>
+            <div key={u.id} style={{background:"var(--card)",borderRadius:12,border:`1px solid ${isOpen?"rgba(0,200,255,0.25)":"rgba(255,255,255,0.06)"}`,overflow:"hidden",transition:"border-color 0.2s"}}>
+              {/* Row */}
+              <div onClick={() => setExpanded(isOpen ? null : u.id)}
+                style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",cursor:"pointer",userSelect:"none",background: isOpen?"rgba(0,200,255,0.04)":"transparent"}}>
+                <div style={{width:34,height:34,borderRadius:17,
+                  background: isAdm?"rgba(236,72,153,0.2)":"rgba(0,200,255,0.1)",
+                  border:`2px solid ${isAdm?"#EC4899":"rgba(0,200,255,0.3)"}`,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:14,fontWeight:800,color: isAdm?"#EC4899":"var(--cyan)",flexShrink:0}}>
                   {(u.nom||u.email||"?")[0].toUpperCase()}
                 </div>
-
-                {/* Infos */}
-                <div style={{flex:1, minWidth:0}}>
+                <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                     <span style={{fontWeight:700,fontSize:13,color:"var(--text)"}}>{u.nom||"Sans nom"}</span>
-                    {isAdmin && (
-                      <span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:"rgba(236,72,153,0.2)",color:"#EC4899",fontWeight:700}}>
-                        ADMIN
-                      </span>
-                    )}
+                    {isAdm && <span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:"rgba(236,72,153,0.2)",color:"#EC4899",fontWeight:700}}>ADMIN</span>}
                   </div>
-                  <div style={{fontSize:10,color:"var(--muted)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                    {u.email}
-                  </div>
-                  {u.last_login && (
-                    <div style={{fontSize:9,color:"rgba(255,255,255,0.25)",marginTop:1}}>
-                      Derniere co. : {(u.last_login||"").slice(0,10)}
-                    </div>
-                  )}
+                  <div style={{fontSize:10,color:"var(--muted)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</div>
+                  {u.last_login && <div style={{fontSize:9,color:"rgba(255,255,255,0.25)",marginTop:1}}>Derniere co. : {(u.last_login||"").slice(0,10)}</div>}
                 </div>
-
-                {/* KPIs inline desktop */}
                 {!isMobile && (
-                  <div style={{ display:"flex", gap:14, flexShrink:0 }}>
+                  <div style={{display:"flex",gap:14,flexShrink:0}}>
                     {[
-                      { v:_adminFmtM(u.revenus),        l:"Revenus",    c:"#10B981" },
-                      { v:_adminFmtM(u.solde),          l:"Solde",      c: (u.solde||0)>=0?"var(--cyan)":"#EF4444" },
-                      { v:_adminFmtM(u.patrimoine_net), l:"Patrimoine", c:"#F59E0B" },
-                      { v:(u.nb_actifs||0)+" actifs",   l:"Actifs",     c:"rgba(255,255,255,0.5)" },
-                      { v:(u.nb_mois||0)+" mois",       l:"Historique", c:"rgba(255,255,255,0.5)" },
+                      {v:_adminFmtM(u.revenus),        l:"Revenus",    c:"#10B981"},
+                      {v:_adminFmtM(u.solde),          l:"Solde",      c:(u.solde||0)>=0?"var(--cyan)":"#EF4444"},
+                      {v:_adminFmtM(u.patrimoine_net), l:"Patrimoine", c:"#F59E0B"},
+                      {v:(u.nb_actifs||0)+" actifs",   l:"Actifs",     c:"rgba(255,255,255,0.5)"},
+                      {v:(u.nb_mois||0)+" mois",       l:"Historique", c:"rgba(255,255,255,0.5)"},
                     ].map(k => (
                       <div key={k.l} style={{textAlign:"right"}}>
                         <div style={{fontSize:13,fontWeight:800,color:k.c,lineHeight:1}}>{k.v}</div>
@@ -5391,62 +5512,44 @@ function AdminPanel({ authUser }) {
                     ))}
                   </div>
                 )}
-
-                {/* Chevron */}
-                <span style={{fontSize:14,color:"var(--muted)",transition:"transform 0.2s",transform:isOpen?"rotate(180deg)":"none",flexShrink:0}}>
-                  &#9660;
-                </span>
+                <span style={{fontSize:14,color:"var(--muted)",transition:"transform 0.2s",transform:isOpen?"rotate(180deg)":"none",flexShrink:0}}>&#9660;</span>
               </div>
 
-              {/* Actions rapides */}
+              {/* Actions */}
               {isOpen && (
-                <div onClick={e=>e.stopPropagation()} style={{
-                  display:"flex", gap:6, padding:"8px 14px 10px",
-                  borderTop:"1px solid rgba(255,255,255,0.05)",
-                  flexWrap:"wrap", background:"rgba(0,0,0,0.15)",
-                }}>
-                  {/* Toggle admin */}
-                  {conf === "toggleAdmin" ? (
+                <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:6,padding:"8px 14px 10px",borderTop:"1px solid rgba(255,255,255,0.05)",flexWrap:"wrap",background:"rgba(0,0,0,0.15)"}}>
+                  {conf==="toggleAdmin" ? (
                     <span style={{display:"flex",gap:5,alignItems:"center"}}>
                       <span style={{fontSize:10,color:"var(--muted)"}}>Confirmer ?</span>
                       <button onClick={()=>doAction(u.id,"toggleAdmin")} style={ab("#EC4899")}>Oui &#10003;</button>
                       <button onClick={()=>setConfirms(c=>({...c,[u.id]:null}))} style={ab("var(--muted)")}>Non</button>
                     </span>
                   ) : (
-                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"toggleAdmin"}))} style={ab(isAdmin?"#EF4444":"#EC4899")}>
-                      {isAdmin ? "&#10006; Retirer admin" : "&#9733; Promouvoir admin"}
+                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"toggleAdmin"}))} style={ab(isAdm?"#EF4444":"#EC4899")}>
+                      {isAdm?"&#10006; Retirer admin":"&#9733; Promouvoir admin"}
                     </button>
                   )}
-
-                  {/* Reset data */}
-                  {conf === "resetData" ? (
+                  {conf==="resetData" ? (
                     <span style={{display:"flex",gap:5,alignItems:"center"}}>
                       <span style={{fontSize:10,color:"#F59E0B"}}>Effacer toutes les donnees ?</span>
                       <button onClick={()=>doAction(u.id,"resetData")} style={ab("#F59E0B")}>Oui &#10003;</button>
                       <button onClick={()=>setConfirms(c=>({...c,[u.id]:null}))} style={ab("var(--muted)")}>Non</button>
                     </span>
                   ) : (
-                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"resetData"}))} style={ab("#F59E0B")}>
-                      &#8635; Reset donnees
-                    </button>
+                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"resetData"}))} style={ab("#F59E0B")}>&#8635; Reset donnees</button>
                   )}
-
-                  {/* Delete */}
-                  {conf === "delete" ? (
+                  {conf==="delete" ? (
                     <span style={{display:"flex",gap:5,alignItems:"center"}}>
                       <span style={{fontSize:10,color:"#EF4444"}}>Supprimer definitivement ?</span>
                       <button onClick={()=>doAction(u.id,"delete")} style={ab("#EF4444")}>Oui &#10003;</button>
                       <button onClick={()=>setConfirms(c=>({...c,[u.id]:null}))} style={ab("var(--muted)")}>Non</button>
                     </span>
                   ) : (
-                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"delete"}))} style={ab("#EF4444")}>
-                      &#128465; Supprimer
-                    </button>
+                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"delete"}))} style={ab("#EF4444")}>&#128465; Supprimer</button>
                   )}
                 </div>
               )}
 
-              {/* Detail complet */}
               {isOpen && <AdminUserDetail u={u} isMobile={isMobile} />}
             </div>
           );
