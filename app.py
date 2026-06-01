@@ -296,24 +296,132 @@ def export_data():
 @require_auth
 def conseil_ia():
     body = request.get_json() or {}
-    question = body.get("question","")
+
+    # Support ancien format (champ "question" direct) ET nouveau format (données structurées)
+    question = body.get("question", "")
+    if not question:
+        # Construire le prompt depuis les données structurées envoyées par le frontend
+        profil     = body.get("profile", {})
+        revenus    = body.get("revenus", 0)
+        depenses   = body.get("depenses", 0)
+        solde      = body.get("solde", 0)
+        epargne    = body.get("epargne", 0)
+        patrimoine = body.get("patrimoine", 0)
+        objectifs  = body.get("objectifs", [])
+        actifs     = body.get("actifs", [])
+        mois       = body.get("mois", "")
+        nom        = profil.get("nom", "l'utilisateur")
+        revenu_m   = profil.get("revenuMensuel", 0)
+        profil_r   = profil.get("profilRisque", "équilibré")
+        taux_ep    = round(epargne / revenus * 100) if revenus > 0 else 0
+        ratio_dep  = round(depenses / revenus * 100) if revenus > 0 else 0
+        obj_txt    = "\n".join([f"  • {o.get('nom','')} : {o.get('epargne',0):,} / {o.get('cible',0):,} FCFA ({round(o.get('epargne',0)/o.get('cible',1)*100)}%)" for o in objectifs[:4]]) or "  Aucun objectif défini"
+        actif_txt  = "\n".join([f"  • {a.get('nom','')} ({a.get('type','')}) : {a.get('valeur',0):,} FCFA" for a in actifs[:5]]) or "  Aucun actif enregistré"
+
+        system_prompt = """Tu es Marie-Claire Koné, conseillère en gestion de patrimoine senior basée à Abidjan, avec 15 ans d'expérience auprès de particuliers et familles en Côte d'Ivoire.
+
+Ton style :
+- Tu rédiges des lettres de conseil structurées, professionnelles et chaleureuses
+- Tu respectes EXACTEMENT le format demandé dans le message utilisateur (introduction, conseils titrés avec emoji, résumé numéroté, clôture, signature)
+- Tu utilises toujours les données réelles du client (montants FCFA exacts, noms des actifs, objectifs)
+- Tu connais parfaitement l'écosystème financier ivoirien : Djamo Invest, Wave, Orange Money Épargne, NSIA AM, Coris Money, BRVM, SGBCI, SIB, BOA CI
+- Tu ne dévies jamais du format — pas de markdown superflu, pas de listes hors structure
+- Réponds toujours uniquement en français"""
+
+        question = f"""Tu dois rédiger un conseil financier personnalisé pour {nom}. Voici ses données :
+
+PROFIL :
+- Nom complet : {nom}
+- Revenu mensuel de référence : {revenu_m:,} FCFA
+- Profil investisseur : {profil_r}
+
+BILAN DU MOIS {mois} :
+- Revenus encaissés : {revenus:,} FCFA
+- Dépenses : {depenses:,} FCFA ({ratio_dep}% des revenus)
+- Épargne & investissements : {epargne:,} FCFA (taux d'épargne : {taux_ep}%)
+- Solde disponible en fin de mois : {solde:,} FCFA
+- Patrimoine net total : {patrimoine:,} FCFA
+
+ACTIFS DÉTENUS :
+{actif_txt}
+
+OBJECTIFS EN COURS :
+{obj_txt}
+
+---
+Rédige la réponse EXACTEMENT dans ce format (respecte la structure à la lettre) :
+
+Bonjour M./Mme. [Nom complet du client],
+
+[1 à 2 phrases d'introduction chaleureuse qui reconnaissent sa situation du mois — félicite ce qui est positif, mentionne ce qui mérite attention.]
+
+[Emoji] [Titre du conseil 1]
+[Explication du conseil avec des chiffres FCFA concrets tirés de sa situation réelle. Sois précis et pratique.]
+
+[Emoji] [Titre du conseil 2]
+[Explication du conseil avec des chiffres FCFA concrets. Mentionne un produit CI réel si pertinent (Djamo Invest, NSIA AM, BRVM, Orange Money Épargne, Wave, Coris…).]
+
+[Emoji] [Titre du conseil 3]
+[Explication du conseil avec des chiffres FCFA concrets.]
+
+[Emoji] [Titre du conseil 4]
+[Explication du conseil avec des chiffres FCFA concrets.]
+
+[Optionnel : Emoji] [Titre du conseil 5 si pertinent]
+[Explication.]
+
+En résumé, je vous conseille :
+1. [Action concrète 1]
+2. [Action concrète 2]
+3. [Action concrète 3]
+4. [Action concrète 4]
+5. [Action concrète 5 si applicable]
+
+[Phrase de clôture chaleureuse qui mentionne le nom du client et l'invite à poser des questions.]
+
+Cordialement,
+Marie-Claire Koné
+Conseillère en Gestion de Patrimoine
+
+---
+Règles importantes :
+- Utilise "M." ou "Mme." selon le contexte (par défaut "M." si prénom masculin)
+- Chaque conseil doit avoir un titre court avec emoji ET un paragraphe de 2-4 lignes
+- Cite des montants FCFA réels tirés des données du client
+- Mentionne les actifs ou objectifs du client par leur nom exact
+- Réponds uniquement en français
+- Maximum 700 mots"""
+
     if not question:
         return jsonify({"error": "Question requise"}), 400
-    groq_key = os.environ.get("GROQ_API_KEY","")
+
+    groq_key = os.environ.get("GROQ_API_KEY", "")
     if not groq_key:
-        return jsonify({"reponse": "Configurez GROQ_API_KEY dans .env pour activer l\'IA."}), 200
+        # Fallback Ollama local si pas de clé Groq
+        model = body.get("model", "llama3")
+        try:
+            import requests as _req
+            r = _req.post("http://ollama:11434/api/generate",
+                headers={"Content-Type": "application/json"},
+                json={"model": model, "prompt": question, "stream": False, "options": {"temperature": 0.7, "num_predict": 700}},
+                timeout=120)
+            d = r.json()
+            return jsonify({"ok": True, "conseil": d.get("response", "Réponse vide.")}), 200
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"Ollama inaccessible: {str(e)}. Configurez GROQ_API_KEY dans .env ou démarrez Ollama."}), 200
+
     try:
         import requests as _req
         r = _req.post("https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
-            json={"model":"llama-3.3-70b-versatile","messages":[
-                {"role":"system","content":"Tu es un conseiller financier expert pour la Cote d\'Ivoire (FCFA/UEMOA). Reponds en francais, sois concis et pratique."},
-                {"role":"user","content":question}],"max_tokens":500,"temperature":0.7}, timeout=15)
+            json={"model": "llama-3.3-70b-versatile", "messages": [
+                {"role": "system", "content": system_prompt if 'system_prompt' in dir() else "Tu es Marie-Claire Koné, conseillère en gestion de patrimoine senior à Abidjan. Tu parles en français, avec chaleur et précision, comme une vraie conseillère humaine. Tu connais bien l'écosystème financier ivoirien (BRVM, NSIA AM, Djamo, Wave, Orange Money, FCFA/UEMOA)."},
+                {"role": "user", "content": question}], "max_tokens": 900, "temperature": 0.75}, timeout=30)
         data = r.json()
-        reponse = data["choices"][0]["message"]["content"]
-        return jsonify({"reponse": reponse}), 200
+        conseil = data["choices"][0]["message"]["content"]
+        return jsonify({"ok": True, "conseil": conseil}), 200
     except Exception as e:
-        return jsonify({"reponse": f"Erreur IA: {str(e)}"}), 200
+        return jsonify({"ok": False, "error": f"Erreur IA: {str(e)}"}), 200
 
 
 # ── Données statiques BRVM ────────────────────────────────────────────────────
