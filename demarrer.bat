@@ -18,8 +18,8 @@ if %errorlevel% neq 0 (
 echo  OK : Python detecte
 
 :: Installer les paquets essentiels d'abord
-echo  Installation : flask, PyJWT, bcrypt, flask-cors, python-dotenv...
-pip install flask flask-cors PyJWT bcrypt gunicorn python-dotenv --quiet
+echo  Installation : flask, PyJWT, bcrypt, flask-cors, python-dotenv, beautifulsoup4...
+pip install flask flask-cors PyJWT bcrypt gunicorn python-dotenv beautifulsoup4 lxml requests --quiet
 if %errorlevel% neq 0 (
     echo  ERREUR lors de l'installation des paquets de base.
     pause

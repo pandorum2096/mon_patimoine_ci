@@ -4104,6 +4104,750 @@ function TabPatrimoine({ data, setData, mois }) {
     </div>
   );
 }
+// ─── ONGLET MARCHÉS ──────────────────────────────────────────────────────────────
+
+function TabMarches() {
+  const isMobile = useMobile();
+  const [section,    setSection]    = React.useState("crypto");
+  const [crypto,     setCrypto]     = React.useState([]);
+  const [indices,    setIndices]    = React.useState([]);
+  const [brvm,       setBrvm]       = React.useState([]);
+  const [loading,    setLoading]    = React.useState({crypto:false, indices:false, brvm:false});
+  const [lastUp,     setLastUp]     = React.useState({});
+  const [search,     setSearch]     = React.useState("");
+  const [mounted,    setMounted]    = React.useState(false);
+  const [error,      setError]      = React.useState({});
+  // Détail crypto
+  const [selectedCrypto, setSelectedCrypto] = React.useState(null);
+  const [detail,         setDetail]         = React.useState(null);
+  const [detailLoading,  setDetailLoading]  = React.useState(false);
+  const [chartDays,      setChartDays]      = React.useState("30");
+  // Détail indice
+  const [selectedIndex,   setSelectedIndex]   = React.useState(null);
+  const [indexChart,      setIndexChart]       = React.useState([]);
+  const [indexChartDays,  setIndexChartDays]   = React.useState("30");
+  const [indexChartLoad,  setIndexChartLoad]   = React.useState(false);
+  const [indexCompanies,  setIndexCompanies]   = React.useState([]);
+  const [indexCoPage,     setIndexCoPage]      = React.useState(1);
+  const [indexCoTotal,    setIndexCoTotal]     = React.useState(0);
+  const [indexCoPages,    setIndexCoPages]     = React.useState(1);
+  const [indexCoLoading,  setIndexCoLoading]   = React.useState(false);
+  const [indexCoSearch,   setIndexCoSearch]    = React.useState("");
+
+  React.useEffect(() => { const t = setTimeout(()=>setMounted(true),80); return ()=>clearTimeout(t); }, []);
+
+  const getHeaders = () => {
+    const tok = localStorage.getItem("patrimoine_token") || sessionStorage.getItem("patrimoine_token") || "";
+    return { Authorization: `Bearer ${tok}` };
+  };
+
+  const fetchSection = React.useCallback((sec) => {
+    setLoading(l => ({...l, [sec]:true}));
+    setError(e => ({...e, [sec]:null}));
+    const endpoints = { crypto:"/api/marches/crypto", indices:"/api/marches/indices", brvm:"/api/marches/brvm" };
+    fetch(endpoints[sec], { headers: getHeaders() })
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { setError(e=>({...e,[sec]:d.error})); setLoading(l=>({...l,[sec]:false})); return; }
+        if (sec === "crypto")  setCrypto(Array.isArray(d) ? d : []);
+        if (sec === "indices") setIndices(Array.isArray(d) ? d : []);
+        if (sec === "brvm")    setBrvm(d.actions || []);
+        setLastUp(u => ({...u, [sec]: new Date().toLocaleTimeString("fr")}));
+        setLoading(l => ({...l, [sec]:false}));
+      })
+      .catch(e => { setError(er=>({...er,[sec]:e.message})); setLoading(l=>({...l,[sec]:false})); });
+  }, []);
+
+  React.useEffect(() => { if (mounted) fetchSection(section); }, [mounted, section]);
+
+  // Auto-refresh 60s
+  React.useEffect(() => {
+    if (!mounted) return;
+    const t = setInterval(() => fetchSection(section), 60000);
+    return () => clearInterval(t);
+  }, [mounted, section]);
+
+  // Fetch détail crypto
+  const fetchDetail = React.useCallback((coinId, days) => {
+    setDetailLoading(true);
+    setDetail(null);
+    const tok = localStorage.getItem("patrimoine_token") || sessionStorage.getItem("patrimoine_token") || "";
+    fetch(`/api/marches/crypto/${coinId}?days=${days}`, { headers: { Authorization: `Bearer ${tok}` } })
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) {
+          setDetail({ _error: d.error, rate_limit: !!d.rate_limit });
+        } else {
+          setDetail(d);
+        }
+        setDetailLoading(false);
+      })
+      .catch(e => {
+        setDetail({ _error: e.message });
+        setDetailLoading(false);
+      });
+  }, []);
+
+  const openCrypto = (c) => {
+    setSelectedCrypto(c);
+    setDetail(null);
+    fetchDetail(c.id, chartDays);
+  };
+
+  const changeChartDays = (d) => {
+    setChartDays(d);
+    if (selectedCrypto) fetchDetail(selectedCrypto.id, d);
+  };
+
+  const getTokenH = () => {
+    const tok = localStorage.getItem("patrimoine_token") || sessionStorage.getItem("patrimoine_token") || "";
+    return { Authorization: `Bearer ${tok}` };
+  };
+
+  const fetchIndexChart = React.useCallback((ticker, days) => {
+    setIndexChartLoad(true); setIndexChart([]);
+    fetch(`/api/marches/indices/${encodeURIComponent(ticker)}/chart?days=${days}`, { headers: getTokenH() })
+      .then(r => r.json())
+      .then(d => { setIndexChart(Array.isArray(d) ? d : []); setIndexChartLoad(false); })
+      .catch(() => setIndexChartLoad(false));
+  }, []);
+
+  const fetchIndexCompanies = React.useCallback((ticker, page, q) => {
+    setIndexCoLoading(true);
+    fetch(`/api/marches/indices/${encodeURIComponent(ticker)}/companies?page=${page}&q=${encodeURIComponent(q)}`, { headers: getTokenH() })
+      .then(r => r.json())
+      .then(d => {
+        setIndexCompanies(d.companies || []);
+        setIndexCoTotal(d.total || 0);
+        setIndexCoPages(d.pages || 1);
+        setIndexCoLoading(false);
+      })
+      .catch(() => setIndexCoLoading(false));
+  }, []);
+
+  const openIndex = (idx) => {
+    setSelectedIndex(idx);
+    setIndexCoPage(1); setIndexCoSearch(""); setIndexCompanies([]);
+    fetchIndexChart(idx.ticker, "30");
+    fetchIndexCompanies(idx.ticker, 1, "");
+  };
+
+  const changeIndexChartDays = (d) => {
+    setIndexChartDays(d);
+    if (selectedIndex) fetchIndexChart(selectedIndex.ticker, d);
+  };
+
+  const searchIndexCompanies = (q) => {
+    setIndexCoSearch(q);
+    setIndexCoPage(1);
+    if (selectedIndex) fetchIndexCompanies(selectedIndex.ticker, 1, q);
+  };
+
+  const goIndexPage = (p) => {
+    setIndexCoPage(p);
+    if (selectedIndex) fetchIndexCompanies(selectedIndex.ticker, p, indexCoSearch);
+  };
+
+  const fmtPrix = (n, devise) => {
+    if (!n && n !== 0) return "—";
+    if (devise === "FCFA") return new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " FCFA";
+    if (n >= 1000) return new Intl.NumberFormat("fr-FR", {minimumFractionDigits:0, maximumFractionDigits:0}).format(n);
+    if (n >= 1) return n.toFixed(2);
+    return n.toFixed(6);
+  };
+
+  const fmtMktCap = (n) => {
+    if (!n) return "—";
+    if (n >= 1e12) return (n/1e12).toFixed(2) + "T$";
+    if (n >= 1e9)  return (n/1e9).toFixed(1) + "B$";
+    if (n >= 1e6)  return (n/1e6).toFixed(0) + "M$";
+    return n.toString();
+  };
+
+  const varColor = (v) => (v > 0 ? "#10B981" : v < 0 ? "#EF4444" : "var(--muted)");
+  const varLabel = (v) => (v > 0 ? "▲ +" : v < 0 ? "▼ " : "") + Math.abs(v).toFixed(2) + "%";
+
+  // Mini sparkline SVG inline
+  const Sparkline = ({ data, color }) => {
+    if (!data || data.length < 2) return null;
+    const W=72, H=28;
+    const vals = data.map(Number).filter(n => !isNaN(n));
+    if (vals.length < 2) return null;
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const range = max - min || 1;
+    const pts = vals.map((v,i) =>
+      `${Math.round((i/(vals.length-1))*W)},${Math.round(H - ((v-min)/range)*(H-4) - 2)}`
+    ).join(" ");
+    return (
+      <svg width={W} height={H} style={{display:"block", flexShrink:0}}>
+        <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round"/>
+      </svg>
+    );
+  };
+
+  const SECTIONS = [
+    { id:"crypto",  label:"Crypto",        icon:"₿",  color:"#F59E0B" },
+    { id:"indices", label:"Indices",        icon:"📈", color:"#3B82F6" },
+    { id:"brvm",    label:"BRVM",           icon:"🌍", color:"#10B981" },
+  ];
+
+  const sectionColor = SECTIONS.find(s=>s.id===section)?.color || "var(--cyan)";
+
+  // Filtrage search
+  const filterItems = (items) => {
+    if (!search.trim()) return items;
+    const q = search.toLowerCase();
+    return items.filter(i => (i.nom||i.name||"").toLowerCase().includes(q) || (i.symbol||i.ticker||"").toLowerCase().includes(q));
+  };
+
+  return (
+    <div style={{ opacity: mounted?1:0, transform: mounted?"translateY(0)":"translateY(12px)", transition:"all 0.4s ease" }}>
+
+      {/* Header */}
+      <div style={{ ...G.card, background:"linear-gradient(135deg,rgba(201,168,76,0.06),rgba(11,22,40,0.9))", borderColor:"rgba(201,168,76,0.3)", marginBottom:16, padding:"18px 20px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
+          <span style={{ fontSize:28 }}>📈</span>
+          <div>
+            <div style={{ fontSize:isMobile?16:18, fontWeight:800, color:"var(--text)" }}>Marchés financiers</div>
+            <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>Crypto · S&P 500 · CAC 40 · BRVM</div>
+          </div>
+          <div style={{ marginLeft:"auto", display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3 }}>
+            <button onClick={()=>fetchSection(section)} style={{ ...G.btnSm("var(--surface)"), fontSize:10, padding:"4px 10px" }}>
+              {loading[section] ? "⏳" : "⟳"} Actualiser
+            </button>
+            {lastUp[section] && <span style={{ fontSize:9, color:"var(--muted)" }}>màj {lastUp[section]}</span>}
+          </div>
+        </div>
+        {/* Onglets section */}
+        <div style={{ display:"flex", gap:8 }}>
+          {SECTIONS.map(s => (
+            <button key={s.id} onClick={()=>setSection(s.id)} style={{
+              padding:"6px 14px", borderRadius:20, fontSize:11, fontWeight:700, cursor:"pointer",
+              fontFamily:"'Space Grotesk',sans-serif", transition:"all 0.2s", flexShrink:0,
+              background: section===s.id ? s.color+"22" : "var(--surface)",
+              border: `1px solid ${section===s.id ? s.color : "var(--border)"}`,
+              color: section===s.id ? s.color : "var(--muted)",
+            }}>{s.icon} {s.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Barre de recherche */}
+      <div style={{ marginBottom:12 }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={section==="crypto"?"Rechercher Bitcoin, ETH...":section==="brvm"?"Rechercher SONATEL, BOA...":"Rechercher S&P 500, CAC 40..."} style={{ ...G.input, marginBottom:0 }}/>
+      </div>
+
+      {/* Erreur */}
+      {error[section] && (
+        <div style={{ padding:"10px 14px", background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.25)", borderRadius:10, color:"#EF4444", fontSize:12, marginBottom:12 }}>
+          ⚠️ {error[section]}
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading[section] && (
+        <div style={{ textAlign:"center", padding:40, color:"var(--muted)", fontSize:13 }}>
+          ⏳ Chargement des données...
+        </div>
+      )}
+
+      {/* ── CRYPTO ── */}
+      {!loading[section] && section === "crypto" && !selectedCrypto && (
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {filterItems(crypto).length === 0 && !error[section] && (
+            <div style={{ textAlign:"center", color:"var(--muted)", padding:30 }}>Aucun résultat</div>
+          )}
+          {filterItems(crypto).map((c, i) => (
+            <div key={c.id} onClick={() => openCrypto(c)} style={{
+              ...G.card, padding:"12px 16px", marginBottom:0,
+              display:"flex", alignItems:"center", gap:12, cursor:"pointer",
+              animation:`slideUp 0.3s ease ${i*0.04}s both`,
+              transition:"border-color 0.2s, transform 0.15s",
+              borderColor: "rgba(0,200,255,0.1)",
+            }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor="rgba(0,200,255,0.35)"; e.currentTarget.style.transform="translateX(4px)"; }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor="rgba(0,200,255,0.1)"; e.currentTarget.style.transform="translateX(0)"; }}>
+              {c.image && <img src={c.image} alt={c.nom} width={36} height={36} style={{ borderRadius:"50%", flexShrink:0 }}/>}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontWeight:800, fontSize:14, color:"var(--text)" }}>{c.nom}</span>
+                  <span style={{ fontSize:9, padding:"1px 6px", borderRadius:4, background:"rgba(0,200,255,0.1)", color:"var(--cyan)", fontWeight:700 }}>{c.symbol}</span>
+                  <span style={{ fontSize:9, color:"var(--muted)", marginLeft:"auto" }}>Voir détails →</span>
+                </div>
+                <div style={{ fontSize:10, color:"var(--muted)", marginTop:2 }}>
+                  Mkt cap : {fmtMktCap(c.market_cap)} &nbsp;·&nbsp; Vol 24h : {fmtMktCap(c.volume_24h)}
+                </div>
+                <div style={{ fontSize:10, color:"var(--muted)", marginTop:1 }}>
+                  7j : <span style={{ color:varColor(c.variation_7j), fontWeight:700 }}>{varLabel(c.variation_7j)}</span>
+                </div>
+              </div>
+              <Sparkline data={c.sparkline} color={varColor(c.variation_24h)}/>
+              <div style={{ textAlign:"right", flexShrink:0 }}>
+                <div style={{ fontWeight:800, fontSize:isMobile?13:15, color:"var(--gold)", fontFamily:"Space Mono,monospace" }}>
+                  {fmtPrix(c.prix, "USD")} $
+                </div>
+                <div style={{ fontSize:12, fontWeight:700, color:varColor(c.variation_24h), marginTop:3 }}>
+                  {varLabel(c.variation_24h)}
+                </div>
+                <div style={{ fontSize:9, color:"var(--muted)", marginTop:2 }}>
+                  H: {c.high_24h?.toFixed(2)}$ &nbsp; L: {c.low_24h?.toFixed(2)}$
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── CRYPTO DETAIL ── */}
+      {!loading[section] && section === "crypto" && selectedCrypto && (
+        <div>
+          {/* Bouton retour */}
+          <button onClick={() => { setSelectedCrypto(null); setDetail(null); }} style={{
+            display:"flex", alignItems:"center", gap:8, background:"transparent",
+            border:"1px solid rgba(0,200,255,0.2)", borderRadius:8, padding:"7px 14px",
+            color:"var(--cyan)", fontSize:12, fontWeight:600, cursor:"pointer", marginBottom:16,
+          }}>← Retour à la liste</button>
+
+          {detailLoading && (
+            <div style={{ textAlign:"center", padding:60, color:"var(--muted)", fontSize:13 }}>
+              ⏳ Chargement des données détaillées...
+            </div>
+          )}
+
+          {!detailLoading && detail && detail._error && (
+            <div style={{ ...G.card, background: detail.rate_limit ? "rgba(245,158,11,0.1)" : "rgba(239,68,68,0.1)", borderColor: detail.rate_limit ? "rgba(245,158,11,0.3)" : "rgba(239,68,68,0.3)" }}>
+              <div style={{ fontSize:20, marginBottom:8 }}>{detail.rate_limit ? "⏳" : "⚠️"}</div>
+              <div style={{ fontWeight:700, color: detail.rate_limit ? "#F59E0B" : "#EF4444", fontSize:14, marginBottom:6 }}>
+                {detail.rate_limit ? "Limite de requêtes atteinte" : "Erreur de chargement"}
+              </div>
+              <div style={{ fontSize:12, color:"var(--muted)", marginBottom:12 }}>{detail._error}</div>
+              {detail.rate_limit && <div style={{ fontSize:11, color:"var(--muted)", marginBottom:12 }}>CoinGecko limite à 30 req/min sur l'offre gratuite. Attendez quelques secondes et réessayez.</div>}
+              <button onClick={() => fetchDetail(selectedCrypto.id, chartDays)} style={{ ...G.btnSm("var(--cyan)"), padding:"6px 16px" }}>⟳ Réessayer</button>
+            </div>
+          )}
+          {!detailLoading && detail && !detail._error && (
+            <div>
+              {/* Header crypto */}
+              <div style={{ ...G.card, padding:"18px 20px", background:`linear-gradient(135deg, rgba(201,168,76,0.06), rgba(11,22,40,0.95))`, borderColor:"rgba(201,168,76,0.25)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:16 }}>
+                  {detail.image && <img src={detail.image} alt={detail.nom} width={56} height={56} style={{ borderRadius:"50%", flexShrink:0 }}/>}
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                      <span style={{ fontSize:isMobile?20:26, fontWeight:900, color:"var(--text)" }}>{detail.nom}</span>
+                      <span style={{ fontSize:11, padding:"2px 8px", borderRadius:6, background:"rgba(0,200,255,0.12)", color:"var(--cyan)", fontWeight:700 }}>{detail.symbol}</span>
+                      {detail.rang && <span style={{ fontSize:10, padding:"2px 7px", borderRadius:6, background:"rgba(201,168,76,0.12)", color:"var(--gold)", fontWeight:600 }}>#{detail.rang}</span>}
+                    </div>
+                    {detail.categories && detail.categories.length > 0 && (
+                      <div style={{ display:"flex", gap:4, marginTop:6, flexWrap:"wrap" }}>
+                        {detail.categories.map((cat,i) => (
+                          <span key={i} style={{ fontSize:9, padding:"1px 6px", borderRadius:4, background:"rgba(255,255,255,0.06)", color:"var(--muted)" }}>{cat}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                    <div style={{ fontSize:isMobile?22:30, fontWeight:900, color:"var(--gold)", fontFamily:"Space Mono,monospace", lineHeight:1 }}>
+                      ${detail.prix >= 1 ? detail.prix.toLocaleString("fr-FR", {minimumFractionDigits:2, maximumFractionDigits:2}) : detail.prix.toFixed(6)}
+                    </div>
+                    <div style={{ fontSize:16, fontWeight:700, color:varColor(detail.variation_24h), marginTop:4 }}>
+                      {varLabel(detail.variation_24h)} <span style={{ fontSize:11, color:"var(--muted)", fontWeight:400 }}>24h</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* KPIs 6 cartes */}
+                <div style={{ display:"grid", gridTemplateColumns: isMobile?"repeat(2,1fr)":"repeat(3,1fr)", gap:8 }}>
+                  {[
+                    { l:"Market Cap",    v:fmtMktCap(detail.market_cap),    c:"#C9A84C" },
+                    { l:"Volume 24h",    v:fmtMktCap(detail.volume_24h),    c:"#3B82F6" },
+                    { l:"High 24h",      v:`$${detail.high_24h?.toFixed(2)}`,c:"#10B981" },
+                    { l:"Low 24h",       v:`$${detail.low_24h?.toFixed(2)}`, c:"#EF4444" },
+                    { l:"ATH",           v:`$${detail.ath >= 1 ? detail.ath.toLocaleString("fr-FR") : detail.ath?.toFixed(6)}`, c:"#8B5CF6", sub: detail.ath_date },
+                    { l:"Supply circ.",  v: detail.supply_circul ? (detail.supply_circul/1e6).toFixed(1)+"M" : "—", c:"var(--muted)" },
+                  ].map(k => (
+                    <div key={k.l} style={{ background:"rgba(0,0,0,0.25)", borderRadius:8, padding:"10px 12px" }}>
+                      <div style={{ fontSize:9, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>{k.l}</div>
+                      <div style={{ fontSize:isMobile?13:15, fontWeight:800, color:k.c, fontFamily:"Space Mono,monospace" }}>{k.v}</div>
+                      {k.sub && <div style={{ fontSize:8, color:"var(--muted)", marginTop:2 }}>{k.sub}</div>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Variations multi-périodes */}
+                <div style={{ display:"flex", gap:8, marginTop:12, flexWrap:"wrap" }}>
+                  {[
+                    { l:"24h", v:detail.variation_24h },
+                    { l:"7j",  v:detail.variation_7j  },
+                    { l:"30j", v:detail.variation_30j },
+                    { l:"1an", v:detail.variation_1an },
+                  ].map(p => (
+                    <div key={p.l} style={{ flex:"1 1 60px", background:"rgba(0,0,0,0.2)", borderRadius:8, padding:"8px", textAlign:"center", border:`1px solid ${varColor(p.v)}22` }}>
+                      <div style={{ fontSize:9, color:"var(--muted)", marginBottom:3 }}>{p.l}</div>
+                      <div style={{ fontSize:13, fontWeight:800, color:varColor(p.v) }}>{varLabel(p.v)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Graphique cours */}
+              <div style={{ ...G.card }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:8 }}>
+                  <SectionHeader title={`Évolution du cours — ${detail.nom}`} color="var(--cyan)"/>
+                  {/* Sélecteur période */}
+                  <div style={{ display:"flex", gap:4 }}>
+                    {[["7","7j"],["30","30j"],["90","3m"],["365","1an"]].map(([d,l]) => (
+                      <button key={d} onClick={()=>changeChartDays(d)} style={{
+                        padding:"4px 10px", borderRadius:6, fontSize:10, fontWeight:700, cursor:"pointer",
+                        background: chartDays===d ? "rgba(0,200,255,0.15)" : "rgba(255,255,255,0.04)",
+                        border:`1px solid ${chartDays===d ? "var(--cyan)" : "rgba(255,255,255,0.1)"}`,
+                        color: chartDays===d ? "var(--cyan)" : "var(--muted)",
+                      }}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {detail.chart_prices && detail.chart_prices.length > 1 ? (() => {
+                  const chartData = detail.chart_prices.map(([ts, prix]) => ({
+                    date: new Date(ts).toLocaleDateString("fr-FR", {month:"short", day:"numeric"}),
+                    prix: prix,
+                  }));
+                  const prices = chartData.map(d => d.prix);
+                  const minP = Math.min(...prices), maxP = Math.max(...prices);
+                  const isUp = prices[prices.length-1] >= prices[0];
+                  const stroke = isUp ? "#10B981" : "#EF4444";
+                  const step = Math.max(1, Math.floor(chartData.length / (isMobile ? 4 : 7)));
+                  return (
+                    <ResponsiveContainer width="100%" height={isMobile ? 180 : 260}>
+                      <AreaChart data={chartData} margin={{top:8, right:8, left:0, bottom:0}}>
+                        <defs>
+                          <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor={stroke} stopOpacity={0.25}/>
+                            <stop offset="95%" stopColor={stroke} stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,200,255,0.06)"/>
+                        <XAxis dataKey="date" tick={{fill:"#7BA8C8", fontSize:10}} interval={step-1} tickLine={false}/>
+                        <YAxis
+                          domain={[minP * 0.995, maxP * 1.005]}
+                          tick={{fill:"#7BA8C8", fontSize:10}}
+                          tickFormatter={v => v >= 1 ? v.toLocaleString("fr-FR", {maximumFractionDigits:0}) : v.toFixed(4)}
+                          width={isMobile ? 50 : 70}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          formatter={(v) => [`$${v >= 1 ? v.toLocaleString("fr-FR", {minimumFractionDigits:2, maximumFractionDigits:2}) : v.toFixed(6)}`, "Prix"]}
+                          contentStyle={{ background:"rgba(11,22,40,0.97)", border:`1px solid ${stroke}44`, borderRadius:8, fontSize:11, boxShadow:"0 8px 24px rgba(0,0,0,0.5)" }}
+                          labelStyle={{ color:"var(--muted)", fontSize:10, marginBottom:4 }}
+                        />
+                        <Area type="monotone" dataKey="prix" stroke={stroke} strokeWidth={2} fill="url(#priceGrad)" dot={false} activeDot={{ r:4, fill:stroke }}/>
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  );
+                })() : <div style={{ textAlign:"center", color:"var(--muted)", padding:40 }}>Données graphique non disponibles</div>}
+              </div>
+
+              {/* Volume */}
+              {detail.chart_volumes && detail.chart_volumes.length > 1 && (
+                <div style={{ ...G.card }}>
+                  <SectionHeader title="Volume d'échanges" color="var(--blue)"/>
+                  <ResponsiveContainer width="100%" height={isMobile ? 100 : 140}>
+                    <BarChart data={detail.chart_volumes.map(([ts,v]) => ({ date: new Date(ts).toLocaleDateString("fr-FR",{month:"short",day:"numeric"}), volume: v }))} margin={{top:4, right:8, left:0, bottom:0}}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,200,255,0.06)"/>
+                      <XAxis dataKey="date" tick={{fill:"#7BA8C8",fontSize:9}} interval={Math.max(1,Math.floor(detail.chart_volumes.length/5)-1)} tickLine={false}/>
+                      <YAxis tickFormatter={v=>(v/1e9).toFixed(1)+"B"} tick={{fill:"#7BA8C8",fontSize:9}} width={45} tickLine={false}/>
+                      <Tooltip formatter={v=>[`$${(v/1e9).toFixed(2)}B`,"Volume"]} contentStyle={{background:"rgba(11,22,40,0.97)",border:"1px solid rgba(59,130,246,0.3)",borderRadius:8,fontSize:11}}/>
+                      <Bar dataKey="volume" fill="#3B82F644" stroke="#3B82F6" strokeWidth={0.5} radius={[2,2,0,0]}/>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Description */}
+              {detail.description && (
+                <div style={{ ...G.card }}>
+                  <SectionHeader title="À propos" color="var(--muted)"/>
+                  <p style={{ fontSize:13, color:"var(--muted)", lineHeight:1.8, margin:0 }}>
+                    {detail.description.replace(/<[^>]+>/g, "").slice(0, 500)}{detail.description.length > 500 ? "..." : ""}
+                  </p>
+                  {detail.website && (
+                    <a href={detail.website} target="_blank" rel="noopener noreferrer" style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:12, fontSize:11, color:"var(--cyan)", fontWeight:600, textDecoration:"none" }}>
+                      🌐 Site officiel ↗
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── INDICES ── */}
+      {/* ── INDICES — liste ── */}
+      {!loading[section] && section === "indices" && !selectedIndex && (
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          {filterItems(indices).map((idx, i) => {
+            const varC = varColor(idx.variation_24h);
+            return (
+              <div key={idx.ticker} onClick={() => openIndex(idx)} style={{
+                ...G.card, padding:"14px 16px", marginBottom:0, cursor:"pointer",
+                borderLeft:`3px solid ${varC}`,
+                animation:`slideUp 0.3s ease ${i*0.06}s both`,
+                transition:"border-color 0.2s, transform 0.15s",
+              }}
+              onMouseEnter={e=>e.currentTarget.style.transform="translateX(4px)"}
+              onMouseLeave={e=>e.currentTarget.style.transform="translateX(0)"}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                  <div>
+                    <div style={{ fontWeight:800, fontSize:15, color:"var(--text)" }}>{idx.nom}</div>
+                    <div style={{ fontSize:10, color:"var(--muted)", marginTop:2 }}>
+                      {idx.ticker} · {idx.region} · {idx.devise}
+                    </div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontWeight:800, fontSize:18, color:"var(--gold)", fontFamily:"Space Mono,monospace" }}>
+                      {fmtPrix(idx.prix, idx.devise)}
+                    </div>
+                    <div style={{ fontSize:13, fontWeight:700, color:varC, marginTop:2 }}>
+                      {varLabel(idx.variation_24h)}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <div style={{ fontSize:10, color:"var(--muted)" }}>
+                    Clôture préc. : <b style={{color:"var(--text)"}}>{fmtPrix(idx.previous_close, idx.devise)}</b>
+                    &nbsp;·&nbsp;<span style={{color:"var(--cyan)"}}>Voir graphique & entreprises →</span>
+                  </div>
+                  <Sparkline data={idx.sparkline} color={varC}/>
+                </div>
+              </div>
+            );
+          })}
+          {filterItems(indices).length === 0 && !error[section] && (
+            <div style={{textAlign:"center",color:"var(--muted)",padding:30}}>Aucun résultat</div>
+          )}
+        </div>
+      )}
+
+      {/* ── INDICES — détail ── */}
+      {!loading[section] && section === "indices" && selectedIndex && (() => {
+        const idx  = selectedIndex;
+        const varC = varColor(idx.variation_24h);
+        const prices = indexChart.map(d => d.prix).filter(Boolean);
+        const minP = prices.length ? Math.min(...prices) : 0;
+        const maxP = prices.length ? Math.max(...prices) : 0;
+        const isUp = prices.length >= 2 && prices[prices.length-1] >= prices[0];
+        const stroke = isUp ? "#10B981" : "#EF4444";
+        const step = Math.max(1, Math.floor(indexChart.length / (isMobile?4:8)));
+
+        return (
+          <div>
+            {/* Bouton retour */}
+            <button onClick={()=>{ setSelectedIndex(null); setIndexChart([]); setIndexCompanies([]); }} style={{
+              display:"flex", alignItems:"center", gap:8, background:"transparent",
+              border:"1px solid rgba(0,200,255,0.2)", borderRadius:8, padding:"7px 14px",
+              color:"var(--cyan)", fontSize:12, fontWeight:600, cursor:"pointer", marginBottom:16,
+            }}>← Retour aux indices</button>
+
+            {/* Header indice */}
+            <div style={{ ...G.card, padding:"16px 20px", borderLeft:`4px solid ${varC}`, background:`linear-gradient(135deg,${varC}08,rgba(11,22,40,0.95))` }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:10 }}>
+                <div>
+                  <div style={{ fontSize:isMobile?20:26, fontWeight:900, color:"var(--text)" }}>{idx.nom}</div>
+                  <div style={{ fontSize:11, color:"var(--muted)", marginTop:2 }}>{idx.ticker} · {idx.region} · {idx.devise}</div>
+                </div>
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontSize:isMobile?22:30, fontWeight:900, color:"var(--gold)", fontFamily:"Space Mono,monospace", lineHeight:1 }}>
+                    {fmtPrix(idx.prix, idx.devise)}
+                  </div>
+                  <div style={{ fontSize:16, fontWeight:700, color:varC, marginTop:4 }}>{varLabel(idx.variation_24h)}</div>
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:8, marginTop:12, flexWrap:"wrap" }}>
+                {[
+                  {l:"Clôture préc.", v:fmtPrix(idx.previous_close, idx.devise), c:"var(--muted)"},
+                  {l:"Variation 24h", v:varLabel(idx.variation_24h), c:varC},
+                  {l:"Région",        v:idx.region, c:"var(--cyan)"},
+                ].map(k => (
+                  <div key={k.l} style={{ flex:"1 1 80px", background:"rgba(0,0,0,0.25)", borderRadius:8, padding:"8px 10px", textAlign:"center" }}>
+                    <div style={{ fontSize:9, color:"var(--muted)", marginBottom:3, textTransform:"uppercase", letterSpacing:"0.06em" }}>{k.l}</div>
+                    <div style={{ fontSize:13, fontWeight:800, color:k.c }}>{k.v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Graphique */}
+            <div style={{ ...G.card }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:8 }}>
+                <SectionHeader title={`Évolution — ${idx.nom}`} color="var(--cyan)"/>
+                <div style={{ display:"flex", gap:4 }}>
+                  {[["7","7j"],["30","30j"],["90","3m"],["365","1an"]].map(([d,l]) => (
+                    <button key={d} onClick={()=>changeIndexChartDays(d)} style={{
+                      padding:"4px 10px", borderRadius:6, fontSize:10, fontWeight:700, cursor:"pointer",
+                      background: indexChartDays===d ? "rgba(0,200,255,0.15)" : "rgba(255,255,255,0.04)",
+                      border:`1px solid ${indexChartDays===d ? "var(--cyan)" : "rgba(255,255,255,0.1)"}`,
+                      color: indexChartDays===d ? "var(--cyan)" : "var(--muted)",
+                    }}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              {indexChartLoad ? (
+                <div style={{textAlign:"center",padding:40,color:"var(--muted)"}}>⏳ Chargement...</div>
+              ) : indexChart.length > 1 ? (
+                <ResponsiveContainer width="100%" height={isMobile?180:260}>
+                  <AreaChart data={indexChart} margin={{top:8,right:8,left:0,bottom:0}}>
+                    <defs>
+                      <linearGradient id="idxGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={stroke} stopOpacity={0.25}/>
+                        <stop offset="95%" stopColor={stroke} stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,200,255,0.06)"/>
+                    <XAxis dataKey="date" tick={{fill:"#7BA8C8",fontSize:10}} interval={step-1} tickLine={false}/>
+                    <YAxis domain={[minP*0.995, maxP*1.005]}
+                      tick={{fill:"#7BA8C8",fontSize:10}}
+                      tickFormatter={v=>v>=1000?v.toLocaleString("fr-FR",{maximumFractionDigits:0}):v.toFixed(2)}
+                      width={isMobile?55:75} tickLine={false}/>
+                    <Tooltip
+                      formatter={(v)=>[`${fmtPrix(v,idx.devise)}`,"Cours"]}
+                      contentStyle={{background:"rgba(11,22,40,0.97)",border:`1px solid ${stroke}44`,borderRadius:8,fontSize:11}}
+                      labelStyle={{color:"var(--muted)",fontSize:10}}/>
+                    <Area type="monotone" dataKey="prix" stroke={stroke} strokeWidth={2} fill="url(#idxGrad)" dot={false} activeDot={{r:4,fill:stroke}}/>
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{textAlign:"center",color:"var(--muted)",padding:30}}>Données non disponibles</div>
+              )}
+            </div>
+
+            {/* Liste entreprises */}
+            <div style={{ ...G.card }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12, flexWrap:"wrap", gap:8 }}>
+                <SectionHeader title={`Entreprises — ${indexCoTotal} au total`} color="var(--gold)"/>
+                <input value={indexCoSearch}
+                  onChange={e=>searchIndexCompanies(e.target.value)}
+                  placeholder="Rechercher une entreprise..."
+                  style={{...G.input, marginBottom:0, width:isMobile?"100%":"220px", fontSize:11, padding:"6px 12px"}}/>
+              </div>
+
+              {indexCoLoading ? (
+                <div style={{textAlign:"center",padding:24,color:"var(--muted)"}}>⏳ Chargement des cours...</div>
+              ) : (
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                    <thead>
+                      <tr style={{background:"rgba(0,0,0,0.2)"}}>
+                        {["#","Entreprise","Ticker","Cours","Variation","Clôt. préc."].map(h=>(
+                          <th key={h} style={{padding:"8px 12px",textAlign:h==="Cours"||h==="Variation"||h==="Clôt. préc."?"right":"left",color:"var(--muted)",fontSize:9,fontWeight:700,letterSpacing:"0.07em",textTransform:"uppercase",borderBottom:"1px solid rgba(0,200,255,0.1)",whiteSpace:"nowrap"}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {indexCompanies.map((s,j)=>(
+                        <tr key={j} style={{borderBottom:"1px solid rgba(255,255,255,0.03)",background:j%2===0?"transparent":"rgba(0,200,255,0.01)"}}>
+                          <td style={{padding:"8px 12px",color:"var(--muted)",fontSize:10}}>{(indexCoPage-1)*25+j+1}</td>
+                          <td style={{padding:"8px 12px",fontWeight:700,color:"var(--text)",whiteSpace:"nowrap"}}>{s.nom}</td>
+                          <td style={{padding:"8px 12px",fontSize:10,color:"var(--cyan)",fontFamily:"Space Mono,monospace"}}>{s.ticker}</td>
+                          <td style={{padding:"8px 12px",textAlign:"right",fontWeight:800,color:"var(--gold)",fontFamily:"Space Mono,monospace",whiteSpace:"nowrap"}}>
+                            {s.prix>0?`${s.prix.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} ${s.devise}`:"—"}
+                          </td>
+                          <td style={{padding:"8px 12px",textAlign:"right",fontWeight:700,color:varColor(s.variation_24h),whiteSpace:"nowrap"}}>
+                            {s.prix>0?varLabel(s.variation_24h):"—"}
+                          </td>
+                          <td style={{padding:"8px 12px",textAlign:"right",color:"var(--muted)",fontSize:11,whiteSpace:"nowrap"}}>
+                            {s.previous_close>0?s.previous_close.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2}):"—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Pagination */}
+              {indexCoPages > 1 && (
+                <div style={{display:"flex",justifyContent:"center",gap:4,marginTop:14,flexWrap:"wrap"}}>
+                  <button onClick={()=>goIndexPage(indexCoPage-1)} disabled={indexCoPage<=1} style={{
+                    padding:"4px 10px",borderRadius:6,fontSize:11,cursor:indexCoPage<=1?"default":"pointer",
+                    background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",
+                    color:indexCoPage<=1?"rgba(255,255,255,0.2)":"var(--muted)",
+                  }}>‹ Préc</button>
+                  {Array.from({length:Math.min(7,indexCoPages)},(_, k)=>{
+                    const start = Math.max(1,Math.min(indexCoPage-3, indexCoPages-6));
+                    const p = start+k;
+                    if(p>indexCoPages) return null;
+                    return (
+                      <button key={p} onClick={()=>goIndexPage(p)} style={{
+                        padding:"4px 10px",borderRadius:6,fontSize:11,cursor:"pointer",
+                        background:p===indexCoPage?"rgba(0,200,255,0.2)":"rgba(255,255,255,0.04)",
+                        border:`1px solid ${p===indexCoPage?"var(--cyan)":"rgba(255,255,255,0.1)"}`,
+                        color:p===indexCoPage?"var(--cyan)":"var(--muted)",fontWeight:p===indexCoPage?700:400,
+                      }}>{p}</button>
+                    );
+                  })}
+                  <button onClick={()=>goIndexPage(indexCoPage+1)} disabled={indexCoPage>=indexCoPages} style={{
+                    padding:"4px 10px",borderRadius:6,fontSize:11,cursor:indexCoPage>=indexCoPages?"default":"pointer",
+                    background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",
+                    color:indexCoPage>=indexCoPages?"rgba(255,255,255,0.2)":"var(--muted)",
+                  }}>Suiv ›</button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── BRVM ── */}
+      {!loading[section] && section === "brvm" && (
+        <div>
+          <div style={{ ...G.card, padding:"10px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:8, background:"rgba(16,185,129,0.06)", borderColor:"rgba(16,185,129,0.2)" }}>
+            <span style={{ fontSize:16 }}>🌍</span>
+            <div>
+              <span style={{ fontSize:12, fontWeight:700, color:"#10B981" }}>Bourse Régionale des Valeurs Mobilières</span>
+              <div style={{ fontSize:10, color:"var(--muted)", marginTop:1 }}>UEMOA · Abidjan · Cours en FCFA</div>
+            </div>
+          </div>
+          <div style={{ ...G.card, padding:0, overflow:"hidden", marginBottom:0 }}>
+            <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize: isMobile?11:12 }}>
+                <thead>
+                  <tr style={{ background:"rgba(0,0,0,0.2)" }}>
+                    {["Action","Cours (FCFA)","Variation","Volume"].map(h => (
+                      <th key={h} style={{ padding:"10px 14px", textAlign: h==="Action"?"left":"right", color:"var(--muted)", fontSize:9, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", borderBottom:"1px solid rgba(0,200,255,0.1)", whiteSpace:"nowrap" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filterItems(brvm).map((a, i) => (
+                    <tr key={i} style={{ borderBottom:"1px solid rgba(255,255,255,0.04)", background: i%2===0?"transparent":"rgba(0,200,255,0.01)", transition:"background 0.15s" }}>
+                      <td style={{ padding:"10px 14px", fontWeight:700, color:"var(--text)" }}>{a.nom}</td>
+                      <td style={{ padding:"10px 14px", textAlign:"right", fontWeight:800, color:"var(--gold)", fontFamily:"Space Mono,monospace" }}>
+                        {new Intl.NumberFormat("fr-FR").format(a.prix)}
+                      </td>
+                      <td style={{ padding:"10px 14px", textAlign:"right", fontWeight:700, color:varColor(a.variation_24h), whiteSpace:"nowrap" }}>
+                        {varLabel(a.variation_24h)}
+                      </td>
+                      <td style={{ padding:"10px 14px", textAlign:"right", color:"var(--muted)", fontSize:10 }}>
+                        {a.volume ? new Intl.NumberFormat("fr-FR").format(a.volume) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                  {filterItems(brvm).length === 0 && (
+                    <tr><td colSpan={4} style={{ textAlign:"center", padding:24, color:"var(--muted)" }}>Aucun résultat</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div style={{ fontSize:9, color:"var(--muted)", textAlign:"right", marginTop:6 }}>
+            Source : brvm.org · données indicatives
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── ONGLET FORMATION ────────────────────────────────────────────────────────────
 
 function TabFormation() {
@@ -4835,6 +5579,7 @@ function App() {
     { id: "investir",   label: "Investir",   icon: "💸" },
     { id: "conseil",    label: "Conseil",    icon: "🌱" },
     { id: "patrimoine", label: "Patrimoine", icon: "💎" },
+    { id: "marches",    label: "Marchés",    icon: "📈" },
     { id: "formation",  label: "Formation",  icon: "📚" },
     { id: "profil",     label: "Profil",     icon: "👤" },
     ...(isAdmin ? [{ id: "admin", label: "Admin", icon: "⚙️" }] : []),
@@ -4955,6 +5700,7 @@ function App() {
         {activeTab === "investir"   && <TabInvestir   data={data} setData={setData} mois={mois} />}
         {activeTab === "conseil"    && <TabConseil    data={data} mois={mois} />}
         {activeTab === "patrimoine" && <TabPatrimoine data={data} setData={setData} mois={mois} />}
+        {activeTab === "marches"    && <TabMarches    />}
         {activeTab === "formation"  && <TabFormation  />}
         {activeTab === "profil"     && <TabProfil     data={data} setData={setData} mois={mois} onReset={() => setData({ ...DEFAULT_STATE })} />}
         {activeTab === "admin"      && isAdmin && <AdminPanel authUser={authUser} />}
@@ -4989,7 +5735,7 @@ function _adminFmtM(n) {
 }
 function _adminPct(v, t) { return t > 0 ? Math.min(100, Math.round(v/t*100)) : 0; }
 function _adminActBtn(col) {
-  return { background:"none", border:`1px solid ${col}`, color:col,
+  return { background:"none", border:"1px solid "+col, color:col,
            borderRadius:6, padding:"3px 9px", fontSize:10, cursor:"pointer", fontWeight:600 };
 }
 
@@ -4998,60 +5744,43 @@ function AdminUserDetail({ u, isMobile }) {
   const pc = _adminPct;
   const [openSection, setOpenSection] = React.useState("budget");
 
-  // ── Sélecteur de mois ─────────────────────────────────────────────────
   const historique = u.historique_mois || [];
   const allMoisList = historique.map(h => h.mois).filter(Boolean).sort().reverse();
   const defaultMois = u.mois_actif || (allMoisList[0] || "");
   const [selectedMois, setSelectedMois] = React.useState(defaultMois);
-  const [moisData, setMoisData]         = React.useState(null);  // données du mois sélectionné
+  const [moisData, setMoisData]         = React.useState(null);
   const [moisLoading, setMoisLoading]   = React.useState(false);
 
-  // Fetch les lignes du mois sélectionné si différent du mois actif
   React.useEffect(() => {
     if (!selectedMois || !u.id) return;
-    // Si c'est le mois actif, utiliser les données déjà chargées
     if (selectedMois === (u.mois_actif || defaultMois) && u.lignes_revenus !== undefined) {
-      setMoisData(null); // utilise u.lignes_revenus / u.lignes_depenses
-      return;
+      setMoisData(null); return;
     }
     setMoisLoading(true);
     const tok = localStorage.getItem("patrimoine_token") || sessionStorage.getItem("patrimoine_token") || "";
-    fetch(`/api/admin/users/${u.id}/month/${selectedMois}`, {
-      headers: { Authorization: `Bearer ${tok}` }
-    })
+    fetch(`/api/admin/users/${u.id}/month/${selectedMois}`, { headers: { Authorization: `Bearer ${tok}` } })
       .then(r => r.json())
       .then(d => { setMoisData(d); setMoisLoading(false); })
       .catch(() => setMoisLoading(false));
   }, [selectedMois, u.id]);
 
-  // ── Données effectives selon mois sélectionné ─────────────────────────
   const isCurMois = selectedMois === (u.mois_actif || defaultMois);
   const lignesRevenus  = (moisData ? moisData.revenus  : u.lignes_revenus)  || [];
   const lignesDepenses = (moisData ? moisData.depenses : u.lignes_depenses) || [];
-
-  // KPIs : depuis historique si mois non-actif, sinon depuis u
   const histRow = historique.find(h => h.mois === selectedMois);
   const revenus     = (moisData ? moisData.total_revenus  : null) ?? (histRow ? histRow.revenus  : null) ?? u.revenus     ?? 0;
   const depenses    = (moisData ? moisData.total_depenses : null) ?? (histRow ? histRow.depenses : null) ?? u.depenses    ?? 0;
   const allocations = (moisData ? moisData.allocations    : null) ?? (histRow ? histRow.allocations||0 : null) ?? u.allocations ?? 0;
   const solde       = revenus - depenses - allocations;
-
   const patrimoineNet = u.patrimoine_net || ((u.total_actifs||0) + (u.total_epargne_obj||0) + (isCurMois ? solde : 0));
   const totalActifs   = u.total_actifs || 0;
   const taux    = revenus > 0 ? pc(revenus - depenses, revenus) : 0;
   const tauxCol = taux >= 20 ? "#10B981" : taux >= 10 ? "#F59E0B" : "#EF4444";
+  const actifs       = u.actifs || [];
+  const objectifs    = u.objectifs || [];
+  const transactions = u.transactions_recentes || [];
 
-  const actifs         = u.actifs          || [];
-  const objectifs      = u.objectifs       || [];
-  const transactions   = u.transactions_recentes || [];
-
-  const catColors = {
-    "Loyer":"#6366F1","Électricité":"#F59E0B","Eau":"#06B6D4","Gaz":"#EF4444",
-    "Internet":"#8B5CF6","Assurance":"#10B981","Crédit":"#EC4899",
-    "Alimentation":"#84CC16","Transport":"#F59E0B","Santé":"#EF4444",
-    "Éducation":"#6366F1","Famille":"#10B981","Loisirs":"#EC4899",
-    "Shopping":"#8B5CF6","Abonnements":"#06B6D4","Autre":"#6B7280",
-  };
+  const catColors = { "Loyer":"#6366F1","Electricite":"#F59E0B","Eau":"#06B6D4","Gaz":"#EF4444","Internet":"#8B5CF6","Assurance":"#10B981","Credit":"#EC4899","Alimentation":"#84CC16","Transport":"#F59E0B","Sante":"#EF4444","Education":"#6366F1","Famille":"#10B981","Loisirs":"#EC4899","Shopping":"#8B5CF6","Abonnements":"#06B6D4","Autre":"#6B7280" };
   const cc = (cat) => catColors[cat] || "var(--muted)";
 
   const tabBtn = (id, label) => (
@@ -5066,51 +5795,43 @@ function AdminUserDetail({ u, isMobile }) {
   return (
     <div style={{ padding:"12px 14px 16px", background:"rgba(0,200,255,0.02)", borderTop:"1px solid rgba(0,200,255,0.08)" }}>
 
-      {/* ── Sélecteur de mois ── */}
       {allMoisList.length > 0 && (
         <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12, flexWrap:"wrap" }}>
-          <span style={{ fontSize:11, color:"var(--muted)", fontWeight:700 }}>📅 Mois :</span>
+          <span style={{ fontSize:11, color:"var(--muted)", fontWeight:700 }}>Mois :</span>
           <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
             {allMoisList.map(m => (
               <button key={m} onClick={() => setSelectedMois(m)} style={{
                 padding:"3px 10px", borderRadius:6, fontSize:10, fontWeight:700, cursor:"pointer",
                 background: selectedMois===m ? "rgba(0,200,255,0.2)" : "rgba(255,255,255,0.04)",
                 border: `1px solid ${selectedMois===m ? "var(--cyan)" : "rgba(255,255,255,0.1)"}`,
-                color: selectedMois===m ? "var(--cyan)" : "var(--muted)",
-                transition:"all 0.15s",
-              }}>
-                {m}{m === u.mois_actif ? " ◀" : ""}
-              </button>
+                color: selectedMois===m ? "var(--cyan)" : "var(--muted)", transition:"all 0.15s",
+              }}>{m}{m === u.mois_actif ? " ◄" : ""}</button>
             ))}
           </div>
-          {moisLoading && <span style={{fontSize:10,color:"var(--muted)"}}>⏳ chargement…</span>}
+          {moisLoading && <span style={{fontSize:10,color:"var(--muted)"}}>chargement...</span>}
         </div>
       )}
 
-      {/* ── Résumé profil ── */}
       <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12, fontSize:11 }}>
-        {selectedMois && <span style={{color:"var(--muted)"}}>📅 Mois affiché : <b style={{color:"var(--cyan)"}}>{selectedMois}{selectedMois===u.mois_actif?" (actif)":""}</b></span>}
-        {u.profil_risque && <span style={{color:"var(--muted)"}}>🎯 Profil : <b style={{color:"#F59E0B"}}>{u.profil_risque}</b></span>}
-        {(u.revenu||0) > 0 && <span style={{color:"var(--muted)"}}>💰 Revenu déclaré : <b style={{color:"#10B981"}}>{fm(u.revenu)} FCFA/mois</b></span>}
-        <span style={{color:"var(--muted)"}}>📆 <b style={{color:"var(--text)"}}>{u.nb_mois||0}</b> mois</span>
-        <span style={{color:"var(--muted)"}}>📋 <b style={{color:"var(--text)"}}>{u.nb_transactions||0}</b> transactions</span>
-        <span style={{color:"var(--muted)"}}>💎 <b style={{color:"#F59E0B"}}>{u.nb_actifs||0}</b> actifs</span>
-        <span style={{color:"var(--muted)"}}>🎯 <b style={{color:"var(--cyan)"}}>{u.nb_objectifs||0}</b> objectifs</span>
-        {u.created_at && <span style={{color:"var(--muted)"}}>📝 Inscrit le <b style={{color:"var(--text)"}}>{(u.created_at||"").slice(0,10)}</b></span>}
-        {u.last_login && <span style={{color:"var(--muted)"}}>🔑 Dernière co. <b style={{color:"var(--text)"}}>{(u.last_login||"").slice(0,10)}</b></span>}
+        {selectedMois && <span style={{color:"var(--muted)"}}>Mois : <b style={{color:"var(--cyan)"}}>{selectedMois}{selectedMois===u.mois_actif?" (actif)":""}</b></span>}
+        {u.profil_risque && <span style={{color:"var(--muted)"}}>Profil : <b style={{color:"#F59E0B"}}>{u.profil_risque}</b></span>}
+        {(u.revenu||0) > 0 && <span style={{color:"var(--muted)"}}>Revenu : <b style={{color:"#10B981"}}>{fm(u.revenu)} FCFA</b></span>}
+        <span style={{color:"var(--muted)"}}><b style={{color:"var(--text)"}}>{u.nb_mois||0}</b> mois</span>
+        <span style={{color:"var(--muted)"}}><b style={{color:"var(--text)"}}>{u.nb_transactions||0}</b> transactions</span>
+        <span style={{color:"var(--muted)"}}><b style={{color:"#F59E0B"}}>{u.nb_actifs||0}</b> actifs</span>
+        <span style={{color:"var(--muted)"}}><b style={{color:"var(--cyan)"}}>{u.nb_objectifs||0}</b> objectifs</span>
       </div>
 
-      {/* ── KPIs financiers ── */}
       <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
         {[
           {l:"Revenus",           v:fm(revenus),      c:"#10B981", sub:selectedMois||"ce mois"},
-          {l:"Dépenses",          v:fm(depenses),     c:"#EF4444", sub:selectedMois||"ce mois"},
-          {l:"Allocations",       v:fm(allocations),  c:"#6366F1", sub:"investi+épargnés"},
+          {l:"Depenses",          v:fm(depenses),     c:"#EF4444", sub:selectedMois||"ce mois"},
+          {l:"Allocations",       v:fm(allocations),  c:"#6366F1", sub:"investi+epargnés"},
           {l:"Solde dispo",       v:fm(solde),        c: solde>=0?"var(--cyan)":"#EF4444", sub:"disponible"},
           {l:"Total actifs",      v:fm(totalActifs),  c:"#F59E0B", sub:`${u.nb_actifs||0} actifs`},
-          {l:"Épargne objectifs", v:fm(u.total_epargne_obj||0), c:"#8B5CF6", sub:`${u.nb_objectifs||0} objectifs`},
+          {l:"Epargne obj.",      v:fm(u.total_epargne_obj||0), c:"#8B5CF6", sub:`${u.nb_objectifs||0} obj.`},
           {l:"Patrimoine net",    v:fm(patrimoineNet),c:"#EC4899", sub:"total"},
-          {l:"Taux épargne",      v:taux+"%",         c:tauxCol,   sub: taux>=20?"✅ bon":taux>0?"⚠️ faible":"—"},
+          {l:"Taux epargne",      v:taux+"%",         c:tauxCol,   sub: taux>=20?"bon":taux>0?"faible":"—"},
         ].map(k => (
           <div key={k.l} style={{flex:"1 1 75px",minWidth:68,background:"rgba(0,0,0,0.3)",borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
             <div style={{fontSize:15,fontWeight:800,color:k.c,fontFamily:"monospace",lineHeight:1}}>{k.v}</div>
@@ -5120,229 +5841,155 @@ function AdminUserDetail({ u, isMobile }) {
         ))}
       </div>
 
-      {/* ── Onglets ── */}
       <div style={{ display:"flex", gap:4, marginBottom:10, flexWrap:"wrap" }}>
-        {tabBtn("budget",       `💵 Budget (${lignesRevenus.length}R / ${lignesDepenses.length}D)`)}
-        {tabBtn("objectifs",    `🎯 Objectifs (${objectifs.length || u.nb_objectifs || 0})`)}
-        {tabBtn("actifs",       `💎 Actifs (${actifs.length || u.nb_actifs || 0})`)}
-        {tabBtn("transactions", `📋 Transactions (${transactions.length || u.nb_transactions || 0})`)}
-        {tabBtn("historique",   `📈 Historique (${historique.length || u.nb_mois || 0} mois)`)}
+        {tabBtn("budget",       `Budget (${lignesRevenus.length}R / ${lignesDepenses.length}D)`)}
+        {tabBtn("objectifs",    `Objectifs (${objectifs.length || u.nb_objectifs || 0})`)}
+        {tabBtn("actifs",       `Actifs (${actifs.length || u.nb_actifs || 0})`)}
+        {tabBtn("transactions", `Transactions (${transactions.length || u.nb_transactions || 0})`)}
+        {tabBtn("historique",   `Historique (${historique.length || u.nb_mois || 0})`)}
       </div>
 
-      {/* ── BUDGET ── */}
       {openSection === "budget" && (
         <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"1fr 1fr", gap:10 }}>
           <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"12px 14px" }}>
-            <div style={{ fontWeight:700, color:"#10B981", fontSize:12, marginBottom:8 }}>
-              ↑ Revenus {selectedMois && `(${selectedMois})`} — {fm(revenus)} FCFA
-              {(u.revenu||0) > 0 && revenus === 0 && (
-                <span style={{marginLeft:8,fontSize:9,color:"var(--muted)",fontWeight:400}}>(déclaré : {fm(u.revenu)} FCFA/mois)</span>
-              )}
-            </div>
-            {lignesRevenus.length === 0
-              ? <div style={{color:"var(--muted)",fontSize:11}}>
-                  Aucun revenu saisi ce mois
-                  {(u.revenu||0) > 0 && <div style={{marginTop:6,color:"rgba(16,185,129,0.7)",fontSize:10}}>Revenu mensuel déclaré dans le profil : <b>{fm(u.revenu)} FCFA</b></div>}
+            <div style={{ fontWeight:700, color:"#10B981", fontSize:12, marginBottom:8 }}>Revenus — {fm(revenus)} FCFA</div>
+            {lignesRevenus.length === 0 ? <div style={{color:"var(--muted)",fontSize:11}}>Aucun revenu ce mois</div>
+              : lignesRevenus.map((r,i) => (
+                <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.04)",fontSize:11}}>
+                  <span style={{fontWeight:600}}>{r.nom||"—"}{r.recurrent&&<span style={{marginLeft:5,fontSize:9,color:"#6366F1"}}>🔄</span>}</span>
+                  <span style={{fontWeight:700,color:"#10B981"}}>{fm(r.montant)} FCFA</span>
                 </div>
-              : lignesRevenus.map((r, i) => (
-                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.04)",fontSize:11}}>
-                  <div>
-                    <span style={{fontWeight:600}}>{r.nom||"—"}</span>
-                    {r.recurrent && <span style={{marginLeft:6,fontSize:9,color:"#6366F1",background:"rgba(99,102,241,0.15)",padding:"1px 5px",borderRadius:3}}>🔄</span>}
-                    {r.categorie && <div style={{fontSize:9,color:"var(--muted)"}}>{r.categorie}</div>}
-                  </div>
-                  <span style={{fontWeight:700,color:"#10B981",whiteSpace:"nowrap",marginLeft:8}}>{fm(r.montant)} FCFA</span>
-                </div>
-              ))
-            }
+              ))}
           </div>
           <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"12px 14px" }}>
-            <div style={{ fontWeight:700, color:"#EF4444", fontSize:12, marginBottom:8 }}>
-              ↓ Dépenses — {fm(depenses)} FCFA
-            </div>
-            {lignesDepenses.length === 0
-              ? <div style={{color:"var(--muted)",fontSize:11}}>Aucune dépense saisie ce mois</div>
-              : lignesDepenses.map((d, i) => (
-                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.04)",fontSize:11}}>
+            <div style={{ fontWeight:700, color:"#EF4444", fontSize:12, marginBottom:8 }}>Depenses — {fm(depenses)} FCFA</div>
+            {lignesDepenses.length === 0 ? <div style={{color:"var(--muted)",fontSize:11}}>Aucune depense ce mois</div>
+              : lignesDepenses.map((d,i) => (
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.04)",fontSize:11}}>
                   <div>
                     <span style={{fontWeight:600}}>{d.nom||"—"}</span>
-                    {d.recurrent && <span style={{marginLeft:6,fontSize:9,color:"#6366F1",background:"rgba(99,102,241,0.15)",padding:"1px 5px",borderRadius:3}}>🔄</span>}
-                    {d.categorie && <span style={{marginLeft:6,fontSize:9,color:cc(d.categorie),background:"rgba(0,0,0,0.2)",padding:"1px 5px",borderRadius:3}}>{d.categorie}</span>}
+                    {d.categorie&&<span style={{marginLeft:6,fontSize:9,color:cc(d.categorie),background:"rgba(0,0,0,0.2)",padding:"1px 5px",borderRadius:3}}>{d.categorie}</span>}
                   </div>
                   <span style={{fontWeight:700,color:"#EF4444",whiteSpace:"nowrap",marginLeft:8}}>{fm(d.montant)} FCFA</span>
                 </div>
-              ))
-            }
+              ))}
           </div>
         </div>
       )}
 
-      {/* ── OBJECTIFS ── */}
       {openSection === "objectifs" && (
         <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"14px" }}>
-          <div style={{fontWeight:700,color:"#8B5CF6",fontSize:12,marginBottom:10}}>
-            Épargne totale objectifs : {fm(u.total_epargne_obj||0)} FCFA — {objectifs.length || u.nb_objectifs || 0} objectif(s)
-          </div>
+          <div style={{fontWeight:700,color:"#8B5CF6",fontSize:12,marginBottom:10}}>Epargne totale : {fm(u.total_epargne_obj||0)} FCFA</div>
           {objectifs.length === 0
-            ? <div style={{color:"var(--muted)",fontSize:11}}>
-                {(u.nb_objectifs||0) > 0
-                  ? `${u.nb_objectifs} objectif(s) — rechargez après redémarrage serveur pour le détail`
-                  : "Aucun objectif créé"}
-              </div>
-            : objectifs.map((o, i) => {
+            ? <div style={{color:"var(--muted)",fontSize:11}}>{(u.nb_objectifs||0)>0?`${u.nb_objectifs} objectif(s) — redemarrez le serveur`:"Aucun objectif"}</div>
+            : objectifs.map((o,i) => {
               const p = pc(o.epargne, o.cible);
               return (
-                <div key={i} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
-                    <span style={{fontWeight:700,fontSize:13}}>{o.icon} {o.nom}</span>
-                    <span style={{fontSize:11,color:p>=100?"#10B981":"var(--muted)"}}>{p>=100?"🎉 Atteint":p+"%"}</span>
+                <div key={i} style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                    <span style={{fontWeight:700}}>{o.icon} {o.nom}</span>
+                    <span style={{fontSize:11,color:p>=100?"#10B981":"var(--muted)"}}>{p>=100?"Atteint":p+"%"}</span>
                   </div>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--muted)",marginBottom:5,flexWrap:"wrap",gap:4}}>
-                    <span>Épargné : <b style={{color:"var(--cyan)"}}>{fm(o.epargne)} FCFA</b></span>
-                    <span>Cible : <b style={{color:"#F59E0B"}}>{fm(o.cible)} FCFA</b></span>
-                    <span>Restant : <b style={{color:"#EF4444"}}>{fm(Math.max(0,o.cible-o.epargne))} FCFA</b></span>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"var(--muted)",marginBottom:4,flexWrap:"wrap",gap:4}}>
+                    <span>Epargne : <b style={{color:"var(--cyan)"}}>{fm(o.epargne)}</b></span>
+                    <span>Cible : <b style={{color:"#F59E0B"}}>{fm(o.cible)}</b></span>
+                    <span>Reste : <b style={{color:"#EF4444"}}>{fm(Math.max(0,o.cible-o.epargne))}</b></span>
                   </div>
-                  <div style={{height:8,background:"rgba(255,255,255,0.07)",borderRadius:99}}>
-                    <div style={{height:8,width:`${p}%`,background:p>=100?"#10B981":"var(--cyan)",borderRadius:99,transition:"width 0.8s"}}/>
+                  <div style={{height:6,background:"rgba(255,255,255,0.07)",borderRadius:99}}>
+                    <div style={{height:6,width:`${p}%`,background:p>=100?"#10B981":"var(--cyan)",borderRadius:99}}/>
                   </div>
                 </div>
               );
-            })
-          }
+            })}
         </div>
       )}
 
-      {/* ── ACTIFS ── */}
       {openSection === "actifs" && (
         <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"14px" }}>
-          <div style={{fontWeight:700,color:"#F59E0B",fontSize:12,marginBottom:10}}>
-            {u.nb_actifs||0} actif(s) — Valeur totale : <span style={{color:"#F59E0B",fontSize:14}}>{fm(totalActifs)} FCFA</span>
-            {(u.total_epargne_obj||0) > 0 && <span style={{color:"var(--muted)",fontWeight:400,fontSize:10,marginLeft:10}}>+ Épargne obj : {fm(u.total_epargne_obj)} FCFA</span>}
-          </div>
+          <div style={{fontWeight:700,color:"#F59E0B",fontSize:12,marginBottom:10}}>{u.nb_actifs||0} actif(s) — {fm(totalActifs)} FCFA</div>
           {actifs.length === 0
-            ? <div style={{color:"var(--muted)",fontSize:11}}>
-                {(u.nb_actifs||0) > 0
-                  ? <span>
-                      <b style={{color:"#F59E0B"}}>{u.nb_actifs} actifs</b> pour un total de <b style={{color:"#F59E0B"}}>{fm(totalActifs)} FCFA</b>
-                      <br/><span style={{fontSize:10,marginTop:4,display:"block",color:"rgba(255,255,255,0.3)"}}>Redémarrez le serveur pour voir le détail par actif</span>
-                    </span>
-                  : "Aucun actif enregistré"}
-              </div>
-            : actifs.map((a, i) => {
-              const pv = (a.valeurActuelle||0) - (a.valeurInitiale||a.valeurActuelle||0);
-              const pvPct = (a.valeurInitiale||0) > 0 ? Math.round(pv/(a.valeurInitiale)*100) : 0;
+            ? <div style={{color:"var(--muted)",fontSize:11}}>{(u.nb_actifs||0)>0?`${u.nb_actifs} actifs (${fm(totalActifs)} FCFA) — redemarrez le serveur`:"Aucun actif"}</div>
+            : actifs.map((a,i) => {
+              const pv = (a.valeurActuelle||0)-(a.valeurInitiale||a.valeurActuelle||0);
+              const pvPct = (a.valeurInitiale||0)>0?Math.round(pv/a.valeurInitiale*100):0;
               return (
-                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:11}}>
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.05)",fontSize:11}}>
                   <div>
-                    <div style={{fontWeight:700,fontSize:12}}>{a.nom||"—"}</div>
-                    <div style={{fontSize:9,color:"rgba(0,200,255,0.5)",marginTop:1}}>
-                      {a.type} • {a.source==="app"?"via app":"manuel"}{a.dateAchat?` • ${a.dateAchat}`:""}
-                    </div>
-                    {(a.valeurInitiale||0) > 0 && a.valeurInitiale !== a.valeurActuelle && (
-                      <div style={{fontSize:9,color:"var(--muted)"}}>Achat : {fm(a.valeurInitiale)} FCFA</div>
-                    )}
+                    <div style={{fontWeight:700}}>{a.nom||"—"}</div>
+                    <div style={{fontSize:9,color:"rgba(0,200,255,0.5)"}}>{a.type} · {a.source==="app"?"via app":"manuel"}{a.dateAchat?` · ${a.dateAchat}`:""}</div>
                   </div>
                   <div style={{textAlign:"right"}}>
-                    <div style={{fontWeight:800,color:"#F59E0B",fontSize:13}}>{fm(a.valeurActuelle)} FCFA</div>
-                    {pv !== 0 && <div style={{fontSize:10,color:pv>=0?"#10B981":"#EF4444",fontWeight:600}}>{pv>=0?"+":""}{fm(pv)} ({pvPct>=0?"+":""}{pvPct}%)</div>}
+                    <div style={{fontWeight:800,color:"#F59E0B"}}>{fm(a.valeurActuelle)} FCFA</div>
+                    {pv!==0&&<div style={{fontSize:10,color:pv>=0?"#10B981":"#EF4444",fontWeight:600}}>{pv>=0?"+":""}{fm(pv)} ({pvPct>=0?"+":""}{pvPct}%)</div>}
                   </div>
                 </div>
               );
-            })
-          }
+            })}
         </div>
       )}
 
-      {/* ── TRANSACTIONS ── */}
       {openSection === "transactions" && (
         <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"14px" }}>
-          <div style={{fontWeight:700,color:"#6366F1",fontSize:12,marginBottom:10}}>
-            {u.nb_transactions||0} transaction(s) au total
-          </div>
+          <div style={{fontWeight:700,color:"#6366F1",fontSize:12,marginBottom:10}}>{u.nb_transactions||0} transaction(s)</div>
           {transactions.length === 0
-            ? <div style={{color:"var(--muted)",fontSize:11}}>
-                {(u.nb_transactions||0) > 0
-                  ? `${u.nb_transactions} transaction(s) — rechargez après redémarrage serveur pour le détail`
-                  : "Aucune transaction"}
-              </div>
-            : (
-              <div style={{overflowX:"auto",maxHeight:380,overflowY:"auto"}}>
+            ? <div style={{color:"var(--muted)",fontSize:11}}>{(u.nb_transactions||0)>0?`${u.nb_transactions} — redemarrez le serveur`:"Aucune transaction"}</div>
+            : <div style={{overflowX:"auto",maxHeight:320,overflowY:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                   <thead style={{position:"sticky",top:0,background:"var(--card)"}}>
-                    <tr>
-                      {["Date","Mois","Type","Cible","Montant FCFA"].map(h => (
-                        <th key={h} style={{textAlign:"left",padding:"5px 8px",color:"var(--muted)",fontSize:9,fontWeight:700,borderBottom:"1px solid rgba(0,200,255,0.1)"}}>{h}</th>
-                      ))}
-                    </tr>
+                    <tr>{["Date","Mois","Type","Cible","Montant"].map(h=>(
+                      <th key={h} style={{textAlign:"left",padding:"4px 8px",color:"var(--muted)",fontSize:9,fontWeight:700,borderBottom:"1px solid rgba(0,200,255,0.1)"}}>{h}</th>
+                    ))}</tr>
                   </thead>
                   <tbody>
-                    {transactions.map((t, i) => (
-                      <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)",background:i%2===0?"transparent":"rgba(0,200,255,0.01)"}}>
-                        <td style={{padding:"5px 8px",color:"var(--muted)",whiteSpace:"nowrap"}}>{(t.date||"").slice(0,10)}</td>
-                        <td style={{padding:"5px 8px",color:"var(--muted)",fontSize:10}}>{t.mois||"—"}</td>
-                        <td style={{padding:"5px 8px"}}>
-                          <span style={{padding:"1px 6px",borderRadius:4,fontSize:9,fontWeight:700,
-                            background:t.type==="investissement"?"rgba(99,102,241,0.2)":t.type==="objectif"?"rgba(0,200,255,0.12)":t.type==="retrait_objectif"?"rgba(239,68,68,0.12)":"rgba(255,255,255,0.06)",
-                            color:t.type==="investissement"?"#6366F1":t.type==="objectif"?"var(--cyan)":t.type==="retrait_objectif"?"#EF4444":"var(--muted)",
-                          }}>{t.type}</span>
+                    {transactions.map((t,i)=>(
+                      <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)"}}>
+                        <td style={{padding:"4px 8px",color:"var(--muted)",whiteSpace:"nowrap"}}>{(t.date||"").slice(0,10)}</td>
+                        <td style={{padding:"4px 8px",color:"var(--muted)",fontSize:10}}>{t.mois||"—"}</td>
+                        <td style={{padding:"4px 8px"}}>
+                          <span style={{padding:"1px 5px",borderRadius:4,fontSize:9,fontWeight:700,background:t.type==="investissement"?"rgba(99,102,241,0.2)":"rgba(0,200,255,0.12)",color:t.type==="investissement"?"#6366F1":"var(--cyan)"}}>{t.type}</span>
                         </td>
-                        <td style={{padding:"5px 8px",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.cible||"—"}</td>
-                        <td style={{padding:"5px 8px",fontWeight:700,color:"var(--cyan)",textAlign:"right",whiteSpace:"nowrap"}}>{fm(t.montant)}</td>
+                        <td style={{padding:"4px 8px",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.cible||"—"}</td>
+                        <td style={{padding:"4px 8px",fontWeight:700,color:"var(--cyan)",textAlign:"right",whiteSpace:"nowrap"}}>{fm(t.montant)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-            )
-          }
+              </div>}
         </div>
       )}
 
-      {/* ── HISTORIQUE MOIS ── */}
       {openSection === "historique" && (
         <div style={{ background:"rgba(0,0,0,0.25)", borderRadius:10, padding:"14px" }}>
-          <div style={{fontWeight:700,color:"#EC4899",fontSize:12,marginBottom:10}}>
-            {historique.length || u.nb_mois || 0} mois de données
-          </div>
+          <div style={{fontWeight:700,color:"#EC4899",fontSize:12,marginBottom:10}}>{historique.length||u.nb_mois||0} mois</div>
           {historique.length === 0
-            ? <div style={{color:"var(--muted)",fontSize:11}}>
-                {(u.nb_mois||0) > 0
-                  ? `${u.nb_mois} mois enregistrés — rechargez après redémarrage serveur pour le détail`
-                  : "Aucun historique disponible"}
-              </div>
-            : (
-              <div style={{overflowX:"auto"}}>
+            ? <div style={{color:"var(--muted)",fontSize:11}}>{(u.nb_mois||0)>0?`${u.nb_mois} mois — redemarrez le serveur`:"Aucun historique"}</div>
+            : <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                   <thead>
-                    <tr>
-                      {["Mois","Revenus","Dépenses","Allocations","Solde","Lignes R","Lignes D"].map(h => (
-                        <th key={h} style={{textAlign:"right",padding:"5px 8px",color:"var(--muted)",fontSize:9,fontWeight:700,borderBottom:"1px solid rgba(0,200,255,0.1)"}}>{h}</th>
-                      ))}
-                    </tr>
+                    <tr>{["Mois","Revenus","Depenses","Alloc.","Solde","R","D"].map(h=>(
+                      <th key={h} style={{textAlign:"right",padding:"4px 8px",color:"var(--muted)",fontSize:9,fontWeight:700,borderBottom:"1px solid rgba(0,200,255,0.1)"}}>{h}</th>
+                    ))}</tr>
                   </thead>
                   <tbody>
-                    {historique.map((m, i) => {
-                      const sol = m.revenus - m.depenses - (m.allocations||0);
+                    {historique.map((m,i)=>{
+                      const sol = m.revenus-m.depenses-(m.allocations||0);
                       return (
-                        <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)",background:i%2===0?"transparent":"rgba(0,200,255,0.01)"}}>
-                          <td style={{padding:"5px 8px",fontWeight:700,color:m.mois===u.mois_actif?"var(--cyan)":"var(--text)",textAlign:"left"}}>{m.mois}{m.mois===u.mois_actif?" ◀":""}</td>
-                          <td style={{padding:"5px 8px",textAlign:"right",color:"#10B981",fontWeight:600}}>{fm(m.revenus)}</td>
-                          <td style={{padding:"5px 8px",textAlign:"right",color:"#EF4444",fontWeight:600}}>{fm(m.depenses)}</td>
-                          <td style={{padding:"5px 8px",textAlign:"right",color:"#6366F1"}}>{fm(m.allocations||0)}</td>
-                          <td style={{padding:"5px 8px",textAlign:"right",fontWeight:700,color:sol>=0?"var(--cyan)":"#EF4444"}}>{fm(sol)}</td>
-                          <td style={{padding:"5px 8px",textAlign:"right",color:"var(--muted)"}}>{m.nb_revenus||0}</td>
-                          <td style={{padding:"5px 8px",textAlign:"right",color:"var(--muted)"}}>{m.nb_depenses||0}</td>
+                        <tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.03)"}}>
+                          <td style={{padding:"4px 8px",fontWeight:700,color:m.mois===u.mois_actif?"var(--cyan)":"var(--text)",textAlign:"left"}}>{m.mois}{m.mois===u.mois_actif?" ◀":""}</td>
+                          <td style={{padding:"4px 8px",textAlign:"right",color:"#10B981",fontWeight:600}}>{fm(m.revenus)}</td>
+                          <td style={{padding:"4px 8px",textAlign:"right",color:"#EF4444",fontWeight:600}}>{fm(m.depenses)}</td>
+                          <td style={{padding:"4px 8px",textAlign:"right",color:"#6366F1"}}>{fm(m.allocations||0)}</td>
+                          <td style={{padding:"4px 8px",textAlign:"right",fontWeight:700,color:sol>=0?"var(--cyan)":"#EF4444"}}>{fm(sol)}</td>
+                          <td style={{padding:"4px 8px",textAlign:"right",color:"var(--muted)"}}>{m.nb_revenus||0}</td>
+                          <td style={{padding:"4px 8px",textAlign:"right",color:"var(--muted)"}}>{m.nb_depenses||0}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-              </div>
-            )
-          }
+              </div>}
         </div>
       )}
-
     </div>
   );
 }
@@ -5386,8 +6033,8 @@ function AdminPanel({ authUser }) {
 
   const doAction = (uid, action) => {
     const urls = {
-      delete:      [`/api/admin/users/${uid}`,              "DELETE", "Utilisateur supprime"],
-      resetData:   [`/api/admin/users/${uid}/reset-data`,   "POST",   "Donnees effacees"],
+      delete:      [`/api/admin/users/${uid}`,              "DELETE", "Supprime"],
+      resetData:   [`/api/admin/users/${uid}/reset-data`,   "POST",   "Reset OK"],
       toggleAdmin: [`/api/admin/users/${uid}/toggle-admin`, "POST",   "Droits modifies"],
     };
     const [url, method, ok] = urls[action];
@@ -5405,7 +6052,7 @@ function AdminPanel({ authUser }) {
 
   if (!mounted || loading) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:200,color:"var(--muted)",fontSize:13}}>
-      <span style={{marginRight:10}}>&#9696;</span> Chargement du panel admin...
+      &#9696; Chargement...
     </div>
   );
 
@@ -5426,8 +6073,6 @@ function AdminPanel({ authUser }) {
 
   return (
     <div style={{padding: isMobile?"10px 8px":"16px 20px", maxWidth:1100, margin:"0 auto"}}>
-
-      {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
         <div>
           <h2 style={{margin:0,fontSize:isMobile?16:20,fontWeight:800,color:"var(--gold)"}}>&#9881; Panel Administration</h2>
@@ -5436,7 +6081,6 @@ function AdminPanel({ authUser }) {
         <button onClick={fetchAll} style={{...ab("var(--cyan)"),padding:"6px 14px",fontSize:11}}>&#8635; Actualiser</button>
       </div>
 
-      {/* Flash */}
       {msg && (
         <div style={{padding:"10px 16px",borderRadius:10,marginBottom:14,fontSize:12,fontWeight:700,
           background: msg.ok?"rgba(16,185,129,0.15)":"rgba(239,68,68,0.15)",
@@ -5446,7 +6090,6 @@ function AdminPanel({ authUser }) {
         </div>
       )}
 
-      {/* Stats */}
       {stats && (
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:18}}>
           {statCards.map(s => (
@@ -5459,52 +6102,46 @@ function AdminPanel({ authUser }) {
         </div>
       )}
 
-      {/* Recherche */}
       <div style={{marginBottom:14}}>
-        <input value={search} onChange={e=>setSearch(e.target.value)}
-          placeholder="Rechercher par email ou nom..."
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher par email ou nom..."
           style={{width:"100%",padding:"9px 14px",borderRadius:10,fontSize:12,background:"var(--card)",
             border:"1px solid rgba(0,200,255,0.2)",color:"var(--text)",outline:"none",boxSizing:"border-box"}}/>
       </div>
 
-      {/* Liste */}
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
-        {filtered.length === 0 && (
-          <div style={{textAlign:"center",color:"var(--muted)",padding:30,fontSize:12}}>Aucun utilisateur trouve</div>
-        )}
+        {filtered.length === 0 && <div style={{textAlign:"center",color:"var(--muted)",padding:30,fontSize:12}}>Aucun utilisateur</div>}
         {filtered.map(u => {
-          const isOpen  = expanded === u.id;
-          const isAdm   = !!u.is_admin;
-          const conf    = confirms[u.id] || null;
+          const isOpen = expanded === u.id;
+          const isAdm  = !!u.is_admin;
+          const conf   = confirms[u.id] || null;
           return (
-            <div key={u.id} style={{background:"var(--card)",borderRadius:12,border:`1px solid ${isOpen?"rgba(0,200,255,0.25)":"rgba(255,255,255,0.06)"}`,overflow:"hidden",transition:"border-color 0.2s"}}>
-              {/* Row */}
+            <div key={u.id} style={{background:"var(--card)",borderRadius:12,border:`1px solid ${isOpen?"rgba(0,200,255,0.25)":"rgba(255,255,255,0.06)"}`,overflow:"hidden"}}>
               <div onClick={() => setExpanded(isOpen ? null : u.id)}
-                style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",cursor:"pointer",userSelect:"none",background: isOpen?"rgba(0,200,255,0.04)":"transparent"}}>
+                style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",cursor:"pointer",userSelect:"none",background:isOpen?"rgba(0,200,255,0.04)":"transparent"}}>
                 <div style={{width:34,height:34,borderRadius:17,
-                  background: isAdm?"rgba(236,72,153,0.2)":"rgba(0,200,255,0.1)",
+                  background:isAdm?"rgba(236,72,153,0.2)":"rgba(0,200,255,0.1)",
                   border:`2px solid ${isAdm?"#EC4899":"rgba(0,200,255,0.3)"}`,
                   display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:14,fontWeight:800,color: isAdm?"#EC4899":"var(--cyan)",flexShrink:0}}>
+                  fontSize:14,fontWeight:800,color:isAdm?"#EC4899":"var(--cyan)",flexShrink:0}}>
                   {(u.nom||u.email||"?")[0].toUpperCase()}
                 </div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                     <span style={{fontWeight:700,fontSize:13,color:"var(--text)"}}>{u.nom||"Sans nom"}</span>
-                    {isAdm && <span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:"rgba(236,72,153,0.2)",color:"#EC4899",fontWeight:700}}>ADMIN</span>}
+                    {isAdm&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:4,background:"rgba(236,72,153,0.2)",color:"#EC4899",fontWeight:700}}>ADMIN</span>}
                   </div>
                   <div style={{fontSize:10,color:"var(--muted)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</div>
-                  {u.last_login && <div style={{fontSize:9,color:"rgba(255,255,255,0.25)",marginTop:1}}>Derniere co. : {(u.last_login||"").slice(0,10)}</div>}
+                  {u.last_login&&<div style={{fontSize:9,color:"rgba(255,255,255,0.25)",marginTop:1}}>Derniere co. : {(u.last_login||"").slice(0,10)}</div>}
                 </div>
                 {!isMobile && (
                   <div style={{display:"flex",gap:14,flexShrink:0}}>
                     {[
-                      {v:_adminFmtM(u.revenus),        l:"Revenus",    c:"#10B981"},
-                      {v:_adminFmtM(u.solde),          l:"Solde",      c:(u.solde||0)>=0?"var(--cyan)":"#EF4444"},
-                      {v:_adminFmtM(u.patrimoine_net), l:"Patrimoine", c:"#F59E0B"},
-                      {v:(u.nb_actifs||0)+" actifs",   l:"Actifs",     c:"rgba(255,255,255,0.5)"},
-                      {v:(u.nb_mois||0)+" mois",       l:"Historique", c:"rgba(255,255,255,0.5)"},
-                    ].map(k => (
+                      {v:_adminFmtM(u.revenus),l:"Revenus",c:"#10B981"},
+                      {v:_adminFmtM(u.solde),l:"Solde",c:(u.solde||0)>=0?"var(--cyan)":"#EF4444"},
+                      {v:_adminFmtM(u.patrimoine_net),l:"Patrimoine",c:"#F59E0B"},
+                      {v:(u.nb_actifs||0)+" actifs",l:"Actifs",c:"rgba(255,255,255,0.5)"},
+                      {v:(u.nb_mois||0)+" mois",l:"Historique",c:"rgba(255,255,255,0.5)"},
+                    ].map(k=>(
                       <div key={k.l} style={{textAlign:"right"}}>
                         <div style={{fontSize:13,fontWeight:800,color:k.c,lineHeight:1}}>{k.v}</div>
                         <div style={{fontSize:8,color:"var(--muted)",marginTop:2}}>{k.l}</div>
@@ -5512,44 +6149,42 @@ function AdminPanel({ authUser }) {
                     ))}
                   </div>
                 )}
-                <span style={{fontSize:14,color:"var(--muted)",transition:"transform 0.2s",transform:isOpen?"rotate(180deg)":"none",flexShrink:0}}>&#9660;</span>
+                <span style={{fontSize:14,color:"var(--muted)",transform:isOpen?"rotate(180deg)":"none",flexShrink:0}}>&#9660;</span>
               </div>
 
-              {/* Actions */}
               {isOpen && (
                 <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:6,padding:"8px 14px 10px",borderTop:"1px solid rgba(255,255,255,0.05)",flexWrap:"wrap",background:"rgba(0,0,0,0.15)"}}>
-                  {conf==="toggleAdmin" ? (
+                  {conf==="toggleAdmin"?(
                     <span style={{display:"flex",gap:5,alignItems:"center"}}>
                       <span style={{fontSize:10,color:"var(--muted)"}}>Confirmer ?</span>
-                      <button onClick={()=>doAction(u.id,"toggleAdmin")} style={ab("#EC4899")}>Oui &#10003;</button>
+                      <button onClick={()=>doAction(u.id,"toggleAdmin")} style={ab("#EC4899")}>Oui</button>
                       <button onClick={()=>setConfirms(c=>({...c,[u.id]:null}))} style={ab("var(--muted)")}>Non</button>
                     </span>
-                  ) : (
+                  ):(
                     <button onClick={()=>setConfirms(c=>({...c,[u.id]:"toggleAdmin"}))} style={ab(isAdm?"#EF4444":"#EC4899")}>
-                      {isAdm?"&#10006; Retirer admin":"&#9733; Promouvoir admin"}
+                      {isAdm?"Retirer admin":"Promouvoir admin"}
                     </button>
                   )}
-                  {conf==="resetData" ? (
+                  {conf==="resetData"?(
                     <span style={{display:"flex",gap:5,alignItems:"center"}}>
-                      <span style={{fontSize:10,color:"#F59E0B"}}>Effacer toutes les donnees ?</span>
-                      <button onClick={()=>doAction(u.id,"resetData")} style={ab("#F59E0B")}>Oui &#10003;</button>
+                      <span style={{fontSize:10,color:"#F59E0B"}}>Effacer les donnees ?</span>
+                      <button onClick={()=>doAction(u.id,"resetData")} style={ab("#F59E0B")}>Oui</button>
                       <button onClick={()=>setConfirms(c=>({...c,[u.id]:null}))} style={ab("var(--muted)")}>Non</button>
                     </span>
-                  ) : (
-                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"resetData"}))} style={ab("#F59E0B")}>&#8635; Reset donnees</button>
+                  ):(
+                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"resetData"}))} style={ab("#F59E0B")}>Reset donnees</button>
                   )}
-                  {conf==="delete" ? (
+                  {conf==="delete"?(
                     <span style={{display:"flex",gap:5,alignItems:"center"}}>
-                      <span style={{fontSize:10,color:"#EF4444"}}>Supprimer definitivement ?</span>
-                      <button onClick={()=>doAction(u.id,"delete")} style={ab("#EF4444")}>Oui &#10003;</button>
+                      <span style={{fontSize:10,color:"#EF4444"}}>Supprimer definitif ?</span>
+                      <button onClick={()=>doAction(u.id,"delete")} style={ab("#EF4444")}>Oui</button>
                       <button onClick={()=>setConfirms(c=>({...c,[u.id]:null}))} style={ab("var(--muted)")}>Non</button>
                     </span>
-                  ) : (
-                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"delete"}))} style={ab("#EF4444")}>&#128465; Supprimer</button>
+                  ):(
+                    <button onClick={()=>setConfirms(c=>({...c,[u.id]:"delete"}))} style={ab("#EF4444")}>Supprimer</button>
                   )}
                 </div>
               )}
-
               {isOpen && <AdminUserDetail u={u} isMobile={isMobile} />}
             </div>
           );
