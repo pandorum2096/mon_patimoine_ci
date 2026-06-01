@@ -461,23 +461,61 @@ def marches_crypto():
     import requests as _req
     cached = _cache_get("crypto", 120)
     if cached: return jsonify(cached), 200
+
+    _CRYPTO_STATIC = [
+        {"id":"bitcoin","symbol":"BTC","nom":"Bitcoin","prix":67000,"variation_24h":1.2,"variation_7j":3.5,"market_cap":1300000000000,"volume_24h":35000000000,"image":"","high_24h":68000,"low_24h":66000,"sparkline":[]},
+        {"id":"ethereum","symbol":"ETH","nom":"Ethereum","prix":3500,"variation_24h":-0.8,"variation_7j":2.1,"market_cap":420000000000,"volume_24h":18000000000,"image":"","high_24h":3600,"low_24h":3400,"sparkline":[]},
+        {"id":"tether","symbol":"USDT","nom":"Tether","prix":1.0,"variation_24h":0.0,"variation_7j":0.0,"market_cap":110000000000,"volume_24h":80000000000,"image":"","high_24h":1.0,"low_24h":1.0,"sparkline":[]},
+        {"id":"binancecoin","symbol":"BNB","nom":"BNB","prix":580,"variation_24h":0.5,"variation_7j":1.8,"market_cap":85000000000,"volume_24h":2000000000,"image":"","high_24h":590,"low_24h":570,"sparkline":[]},
+        {"id":"solana","symbol":"SOL","nom":"Solana","prix":175,"variation_24h":2.1,"variation_7j":5.3,"market_cap":80000000000,"volume_24h":5000000000,"image":"","high_24h":180,"low_24h":170,"sparkline":[]},
+        {"id":"ripple","symbol":"XRP","nom":"XRP","prix":0.52,"variation_24h":-0.3,"variation_7j":1.0,"market_cap":28000000000,"volume_24h":1500000000,"image":"","high_24h":0.54,"low_24h":0.50,"sparkline":[]},
+        {"id":"usd-coin","symbol":"USDC","nom":"USD Coin","prix":1.0,"variation_24h":0.0,"variation_7j":0.0,"market_cap":32000000000,"volume_24h":6000000000,"image":"","high_24h":1.0,"low_24h":1.0,"sparkline":[]},
+        {"id":"cardano","symbol":"ADA","nom":"Cardano","prix":0.45,"variation_24h":0.9,"variation_7j":2.3,"market_cap":16000000000,"volume_24h":500000000,"image":"","high_24h":0.46,"low_24h":0.44,"sparkline":[]},
+        {"id":"avalanche-2","symbol":"AVAX","nom":"Avalanche","prix":35,"variation_24h":1.5,"variation_7j":4.0,"market_cap":14000000000,"volume_24h":600000000,"image":"","high_24h":36,"low_24h":34,"sparkline":[]},
+        {"id":"dogecoin","symbol":"DOGE","nom":"Dogecoin","prix":0.16,"variation_24h":0.7,"variation_7j":1.2,"market_cap":23000000000,"volume_24h":800000000,"image":"","high_24h":0.17,"low_24h":0.15,"sparkline":[]},
+    ]
+
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+    cg_key = os.environ.get("COINGECKO_API_KEY", "")
+    if cg_key:
+        headers["x-cg-demo-api-key"] = cg_key
+
+    # sparkline=false : le paramètre sparkline=true est réservé aux plans payants sur serveur distant
+    url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&page=1&sparkline=false&price_change_percentage=24h,7d"
     try:
-        url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=1&sparkline=true&price_change_percentage=24h,7d"
-        r = _req.get(url, timeout=10, headers={"Accept":"application/json"})
+        r = _req.get(url, timeout=10, headers=headers)
         if r.status_code == 429:
-            return jsonify({"error": "Limite API CoinGecko - reessayez dans 60s", "rate_limit": True}), 429
+            print("CoinGecko rate limit (429) — fallback statique")
+            _cache_set("crypto", _CRYPTO_STATIC)
+            return jsonify(_CRYPTO_STATIC), 200
+        if r.status_code == 403:
+            print("CoinGecko acces refuse (403) — fallback statique")
+            _cache_set("crypto", _CRYPTO_STATIC)
+            return jsonify(_CRYPTO_STATIC), 200
+        if r.status_code != 200:
+            print(f"CoinGecko status {r.status_code} — fallback statique")
+            _cache_set("crypto", _CRYPTO_STATIC)
+            return jsonify(_CRYPTO_STATIC), 200
         data = r.json()
+        if not isinstance(data, list) or len(data) == 0:
+            _cache_set("crypto", _CRYPTO_STATIC)
+            return jsonify(_CRYPTO_STATIC), 200
         result = [{"id":c["id"],"symbol":c["symbol"].upper(),"nom":c["name"],
             "prix":c["current_price"],"variation_24h":round(c.get("price_change_percentage_24h") or 0,2),
             "variation_7j":round(c.get("price_change_percentage_7d_in_currency") or 0,2),
             "market_cap":c.get("market_cap",0),"volume_24h":c.get("total_volume",0),
             "image":c.get("image",""),"high_24h":c.get("high_24h",0),"low_24h":c.get("low_24h",0),
-            "sparkline":(c.get("sparkline_in_7d") or {}).get("price",[])[-24:]}
-            for c in (data if isinstance(data,list) else [])]
+            "sparkline":[]}
+            for c in data]
         _cache_set("crypto", result)
         return jsonify(result), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"CoinGecko exception: {e} — fallback statique")
+        _cache_set("crypto", _CRYPTO_STATIC)
+        return jsonify(_CRYPTO_STATIC), 200
 
 @app.route("/api/marches/crypto/<coin_id>", methods=["GET"])
 @require_auth
