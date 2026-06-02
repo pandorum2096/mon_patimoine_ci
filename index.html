@@ -4111,8 +4111,7 @@ function TabMarches() {
   const [section,    setSection]    = React.useState("crypto");
   const [crypto,     setCrypto]     = React.useState([]);
   const [indices,    setIndices]    = React.useState([]);
-  const [brvm,       setBrvm]       = React.useState([]);
-  const [loading,    setLoading]    = React.useState({crypto:false, indices:false, brvm:false});
+  const [loading,    setLoading]    = React.useState({crypto:false, indices:false});
   const [lastUp,     setLastUp]     = React.useState({});
   const [search,     setSearch]     = React.useState("");
   const [mounted,    setMounted]    = React.useState(false);
@@ -4144,14 +4143,13 @@ function TabMarches() {
   const fetchSection = React.useCallback((sec) => {
     setLoading(l => ({...l, [sec]:true}));
     setError(e => ({...e, [sec]:null}));
-    const endpoints = { crypto:"/api/marches/crypto", indices:"/api/marches/indices", brvm:"/api/marches/brvm" };
+    const endpoints = { crypto:"/api/marches/crypto", indices:"/api/marches/indices" };
     fetch(endpoints[sec], { headers: getHeaders() })
       .then(r => r.json())
       .then(d => {
         if (d.error) { setError(e=>({...e,[sec]:d.error})); setLoading(l=>({...l,[sec]:false})); return; }
         if (sec === "crypto")  setCrypto(Array.isArray(d) ? d : []);
         if (sec === "indices") setIndices(Array.isArray(d) ? d : []);
-        if (sec === "brvm")    setBrvm(d.actions || []);
         setLastUp(u => ({...u, [sec]: new Date().toLocaleTimeString("fr")}));
         setLoading(l => ({...l, [sec]:false}));
       })
@@ -4288,7 +4286,6 @@ function TabMarches() {
   const SECTIONS = [
     { id:"crypto",  label:"Crypto",        icon:"₿",  color:"#F59E0B" },
     { id:"indices", label:"Indices",        icon:"📈", color:"#3B82F6" },
-    { id:"brvm",    label:"BRVM",           icon:"🌍", color:"#10B981" },
   ];
 
   const sectionColor = SECTIONS.find(s=>s.id===section)?.color || "var(--cyan)";
@@ -4334,7 +4331,7 @@ function TabMarches() {
 
       {/* Barre de recherche */}
       <div style={{ marginBottom:12 }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={section==="crypto"?"Rechercher Bitcoin, ETH...":section==="brvm"?"Rechercher SONATEL, BOA...":"Rechercher S&P 500, CAC 40..."} style={{ ...G.input, marginBottom:0 }}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={section==="crypto"?"Rechercher Bitcoin, ETH...":"Rechercher S&P 500, CAC 40..."} style={{ ...G.input, marginBottom:0 }}/>
       </div>
 
       {/* Erreur */}
@@ -4798,52 +4795,6 @@ function TabMarches() {
       })()}
 
       {/* ── BRVM ── */}
-      {!loading[section] && section === "brvm" && (
-        <div>
-          <div style={{ ...G.card, padding:"10px 14px", marginBottom:12, display:"flex", alignItems:"center", gap:8, background:"rgba(16,185,129,0.06)", borderColor:"rgba(16,185,129,0.2)" }}>
-            <span style={{ fontSize:16 }}>🌍</span>
-            <div>
-              <span style={{ fontSize:12, fontWeight:700, color:"#10B981" }}>Bourse Régionale des Valeurs Mobilières</span>
-              <div style={{ fontSize:10, color:"var(--muted)", marginTop:1 }}>UEMOA · Abidjan · Cours en FCFA</div>
-            </div>
-          </div>
-          <div style={{ ...G.card, padding:0, overflow:"hidden", marginBottom:0 }}>
-            <div style={{ overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", fontSize: isMobile?11:12 }}>
-                <thead>
-                  <tr style={{ background:"rgba(0,0,0,0.2)" }}>
-                    {["Action","Cours (FCFA)","Variation","Volume"].map(h => (
-                      <th key={h} style={{ padding:"10px 14px", textAlign: h==="Action"?"left":"right", color:"var(--muted)", fontSize:9, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", borderBottom:"1px solid rgba(0,200,255,0.1)", whiteSpace:"nowrap" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filterItems(brvm).map((a, i) => (
-                    <tr key={i} style={{ borderBottom:"1px solid rgba(255,255,255,0.04)", background: i%2===0?"transparent":"rgba(0,200,255,0.01)", transition:"background 0.15s" }}>
-                      <td style={{ padding:"10px 14px", fontWeight:700, color:"var(--text)" }}>{a.nom}</td>
-                      <td style={{ padding:"10px 14px", textAlign:"right", fontWeight:800, color:"var(--gold)", fontFamily:"Space Mono,monospace" }}>
-                        {new Intl.NumberFormat("fr-FR").format(a.prix)}
-                      </td>
-                      <td style={{ padding:"10px 14px", textAlign:"right", fontWeight:700, color:varColor(a.variation_24h), whiteSpace:"nowrap" }}>
-                        {varLabel(a.variation_24h)}
-                      </td>
-                      <td style={{ padding:"10px 14px", textAlign:"right", color:"var(--muted)", fontSize:10 }}>
-                        {a.volume ? new Intl.NumberFormat("fr-FR").format(a.volume) : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                  {filterItems(brvm).length === 0 && (
-                    <tr><td colSpan={4} style={{ textAlign:"center", padding:24, color:"var(--muted)" }}>Aucun résultat</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div style={{ fontSize:9, color:"var(--muted)", textAlign:"right", marginTop:6 }}>
-            Source : brvm.org · données indicatives
-          </div>
-        </div>
-      )}
     </div>
   );
 }

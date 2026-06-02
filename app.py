@@ -424,25 +424,6 @@ Règles importantes :
         return jsonify({"ok": False, "error": f"Erreur IA: {str(e)}"}), 200
 
 
-# ── Données statiques BRVM ────────────────────────────────────────────────────
-_BRVM_STATIC = [
-    {"nom":"SONATEL CI","prix":15800,"variation_24h":0.64,"volume":1200,"devise":"FCFA"},
-    {"nom":"ORANGE CI","prix":12500,"variation_24h":-0.24,"volume":980,"devise":"FCFA"},
-    {"nom":"ECOBANK TG","prix":16,"variation_24h":0.0,"volume":5000,"devise":"FCFA"},
-    {"nom":"SITAB CI","prix":56300,"variation_24h":1.1,"volume":420,"devise":"FCFA"},
-    {"nom":"SOLIBRA CI","prix":185000,"variation_24h":0.0,"volume":30,"devise":"FCFA"},
-    {"nom":"BOA CI","prix":6500,"variation_24h":-0.77,"volume":2100,"devise":"FCFA"},
-    {"nom":"SGBCI","prix":12000,"variation_24h":0.42,"volume":760,"devise":"FCFA"},
-    {"nom":"NSIA BANQUE CI","prix":6600,"variation_24h":0.15,"volume":1500,"devise":"FCFA"},
-    {"nom":"SIB CI","prix":5400,"variation_24h":-0.37,"volume":1900,"devise":"FCFA"},
-    {"nom":"TOTAL CI","prix":2500,"variation_24h":0.0,"volume":3200,"devise":"FCFA"},
-    {"nom":"PALMCI","prix":7700,"variation_24h":0.52,"volume":840,"devise":"FCFA"},
-    {"nom":"SICOR CI","prix":5800,"variation_24h":-0.17,"volume":610,"devise":"FCFA"},
-    {"nom":"CFAO CI","prix":850,"variation_24h":0.0,"volume":420,"devise":"FCFA"},
-    {"nom":"SAPH CI","prix":4490,"variation_24h":0.22,"volume":280,"devise":"FCFA"},
-    {"nom":"CIE CI","prix":1500,"variation_24h":-0.33,"volume":1100,"devise":"FCFA"},
-]
-
 # ── Listes entreprises par indice ─────────────────────────────────────────────
 _INDEX_STOCKS = {
     "^GSPC":[("AAPL","Apple"),("MSFT","Microsoft"),("NVDA","NVIDIA"),("AMZN","Amazon"),
@@ -752,176 +733,45 @@ def marches_index_companies(index_ticker):
 def marches_index_stocks(index_ticker):
     return marches_index_companies(index_ticker)
 
-@app.route("/api/marches/brvm", methods=["GET"])
-@require_auth
-def marches_brvm():
-    import requests as _req
-    cached = _cache_get("brvm", 600)
-    if cached: return jsonify(cached), 200
-    try:
-        bs4_ok = True
-        try: from bs4 import BeautifulSoup
-        except ImportError: bs4_ok = False
-        rows = []
-        if bs4_ok:
-            try:
-                r = _req.get("https://www.brvm.org/fr/cours-des-actions/0/", timeout=10, headers={"User-Agent":"Mozilla/5.0"})
-                from bs4 import BeautifulSoup
-                soup = BeautifulSoup(r.text, "html.parser")
-                table = soup.find("table",{"id":"DataTables_Table_0"}) or soup.find("table",class_="table")
-                if table:
-                    for tr in table.find_all("tr")[1:]:
-                        tds = tr.find_all("td")
-                        if len(tds) >= 4:
-                            try:
-                                def clean(t): return t.get_text(strip=True).replace("\xa0","").replace(" ","").replace(",",".")
-                                nom=tds[0].get_text(strip=True); dernier=float(clean(tds[1]) or "0")
-                                var_str=clean(tds[2]).replace("%",""); variation=float(var_str) if var_str else 0.0
-                                volume=int(float(clean(tds[3]))) if len(tds)>3 else 0
-                                rows.append({"nom":nom,"prix":dernier,"variation_24h":round(variation,2),"volume":volume,"devise":"FCFA"})
-                            except: pass
-            except: pass
-        if not rows: rows = _BRVM_STATIC
-        result = {"actions":rows,"source":"brvm.org" if rows and rows[0]["nom"]!=_BRVM_STATIC[0]["nom"] else "cache_statique"}
-        _cache_set("brvm", result)
-        return jsonify(result), 200
-    except Exception as e:
-        _cache_set("brvm", {"actions":_BRVM_STATIC,"source":"cache_statique"})
-        return jsonify({"actions":_BRVM_STATIC,"source":"cache_statique"}), 200
 
-# ── Admin routes ──────────────────────────────────────────────────────────────
+
 @app.route("/api/admin/stats", methods=["GET"])
 @require_auth
 @require_admin
 def admin_stats():
     try:
-        conn=get_conn(); cur=conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM users"); total_users=cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM users WHERE is_admin=TRUE"); total_admins=cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM users WHERE last_login > NOW()-INTERVAL '30 days'"); active_users=cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM users WHERE last_login > NOW()-INTERVAL '7 days'"); active_7j=cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM users WHERE created_at > NOW()-INTERVAL '30 days'"); new_30j=cur.fetchone()[0]
-        return jsonify({"total_users":total_users,"total_admins":total_admins,"active_users":active_users,"active_7j":active_7j,"new_30j":new_30j}), 200
-    except Exception as e: return jsonify({"error":str(e)}), 500
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM users"); total_users = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE is_admin=TRUE"); total_admins = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE last_login > NOW()-INTERVAL '30 days'"); active_users = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE last_login > NOW()-INTERVAL '7 days'"); active_7j = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE created_at > NOW()-INTERVAL '30 days'"); new_30j = cur.fetchone()[0]
+        return jsonify({"total_users": total_users, "total_admins": total_admins,
+                        "active_users": active_users, "active_7j": active_7j, "new_30j": new_30j}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/api/admin/users", methods=["GET"])
 @require_auth
 @require_admin
 def admin_list_users():
     try:
-        conn=get_conn(); cur=conn.cursor()
-        cur.execute("SELECT u.id,u.email,u.nom,u.is_admin,u.created_at,u.last_login,pd.data FROM users u LEFT JOIN patrimoine_data pd ON pd.user_id=u.id ORDER BY u.created_at DESC")
-        rows=cur.fetchall(); result=[]
-        for row in rows:
-            uid,email,nom,is_admin,created_at,last_login,data_raw=row
-            data=data_raw if isinstance(data_raw,dict) else (json.loads(data_raw) if data_raw else {})
-            profil=data.get("profil",{}); periodes=data.get("periodes",{})
-            mois_actif=data.get("moisActif","")
-            if not mois_actif and periodes: mois_actif=sorted(periodes.keys())[-1]
-            p=periodes.get(mois_actif,{})
-            rev_list=p.get("revenus",[]); dep_list=p.get("depenses",[]); alloc=p.get("allocations",0) or 0
-            total_rev=sum(r.get("montant",0) for r in rev_list); total_dep=sum(d.get("montant",0) for d in dep_list)
-            objectifs=data.get("objectifs",[]); patrimoine=data.get("patrimoine",[]); transactions=data.get("transactions",[])
-            total_actifs=sum(a.get("valeurActuelle",0) for a in patrimoine)
-            total_epargne=sum(o.get("epargne",0) for o in objectifs)
-            historique=[{"mois":m,"revenus":sum(x.get("montant",0) for x in periodes[m].get("revenus",[])),
-                "depenses":sum(x.get("montant",0) for x in periodes[m].get("depenses",[])),
-                "allocations":periodes[m].get("allocations",0) or 0,
-                "nb_revenus":len(periodes[m].get("revenus",[])),"nb_depenses":len(periodes[m].get("depenses",[]))}
-                for m in sorted(periodes.keys(),reverse=True)]
-            result.append({"id":uid,"email":email,"nom":nom,"is_admin":is_admin,
-                "created_at":created_at.isoformat() if created_at else None,
-                "last_login":last_login.isoformat() if last_login else None,
-                "mois_actif":mois_actif,"profil_risque":profil.get("profilRisque",""),
-                "revenu":profil.get("revenuMensuel",0),"nb_mois":len(periodes),
-                "nb_transactions":len(transactions),"nb_actifs":len(patrimoine),"nb_objectifs":len(objectifs),
-                "revenus":total_rev,"depenses":total_dep,"allocations":alloc,"solde":total_rev-total_dep-alloc,
-                "patrimoine_net":total_actifs+total_epargne+(total_rev-total_dep-alloc),
-                "total_actifs":total_actifs,"total_epargne_obj":total_epargne,
-                "lignes_revenus":rev_list,"lignes_depenses":dep_list,"actifs":patrimoine,
-                "objectifs":objectifs,"transactions_recentes":transactions,"historique_mois":historique})
-        return jsonify({"users":result}), 200
-    except Exception as e: return jsonify({"error":str(e)}), 500
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("SELECT u.id, u.email, u.nom, u.is_admin, u.created_at, u.last_login FROM users u ORDER BY u.created_at DESC")
+        rows = cur.fetchall()
+        result = [{"id": r[0], "email": r[1], "nom": r[2], "is_admin": r[3],
+                   "created_at": str(r[4]), "last_login": str(r[5])} for r in rows]
+        return jsonify({"users": result}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-@app.route("/api/admin/users/<int:uid>", methods=["DELETE"])
-@require_auth
-@require_admin
-def admin_delete_user(uid):
-    try:
-        conn=get_conn(); cur=conn.cursor()
-        cur.execute("DELETE FROM patrimoine_data WHERE user_id=%s",(uid,))
-        cur.execute("DELETE FROM users WHERE id=%s",(uid,)); conn.commit()
-        return jsonify({"ok":True}), 200
-    except Exception as e: return jsonify({"error":str(e)}), 500
 
-@app.route("/api/admin/users/<int:uid>/reset-data", methods=["POST"])
-@require_auth
-@require_admin
-def admin_reset_data(uid):
-    try:
-        conn=get_conn(); cur=conn.cursor()
-        cur.execute("UPDATE patrimoine_data SET data='{}'::jsonb WHERE user_id=%s",(uid,)); conn.commit()
-        return jsonify({"ok":True}), 200
-    except Exception as e: return jsonify({"error":str(e)}), 500
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"}), 200
 
-@app.route("/api/admin/users/<int:uid>/toggle-admin", methods=["POST"])
-@require_auth
-@require_admin
-def admin_toggle_admin(uid):
-    if uid==request.user_id: return jsonify({"error":"Impossible de modifier vos propres droits"}), 400
-    try:
-        conn=get_conn(); cur=conn.cursor()
-        cur.execute("UPDATE users SET is_admin=NOT is_admin WHERE id=%s RETURNING is_admin",(uid,))
-        row=cur.fetchone(); conn.commit()
-        if not row: return jsonify({"error":"Utilisateur introuvable"}), 404
-        return jsonify({"is_admin":row[0]}), 200
-    except Exception as e: return jsonify({"error":str(e)}), 500
-
-@app.route("/api/admin/users/<int:uid>/data", methods=["GET"])
-@require_auth
-@require_admin
-def admin_get_user_data(uid):
-    try:
-        conn=get_conn(); cur=conn.cursor()
-        cur.execute("SELECT data FROM patrimoine_data WHERE user_id=%s",(uid,))
-        row=cur.fetchone()
-        if not row: return jsonify({}), 200
-        data=row[0] if isinstance(row[0],dict) else json.loads(row[0])
-        return jsonify(data), 200
-    except Exception as e: return jsonify({"error":str(e)}), 500
-
-@app.route("/api/admin/users/<int:uid>/month/<mois>", methods=["GET"])
-@require_auth
-@require_admin
-def admin_get_user_month(uid, mois):
-    try:
-        conn=get_conn(); cur=conn.cursor()
-        cur.execute("SELECT data FROM patrimoine_data WHERE user_id=%s",(uid,))
-        row=cur.fetchone()
-        if not row: return jsonify({"mois":mois,"revenus":[],"depenses":[],"allocations":0,"total_revenus":0,"total_depenses":0}), 200
-        data=row[0] if isinstance(row[0],dict) else json.loads(row[0])
-        p=data.get("periodes",{}).get(mois,{})
-        rev=p.get("revenus",[]); dep=p.get("depenses",[]); alloc=p.get("allocations",0) or 0
-        return jsonify({"mois":mois,"revenus":rev,"depenses":dep,"allocations":alloc,
-            "total_revenus":sum(r.get("montant",0) for r in rev),
-            "total_depenses":sum(d.get("montant",0) for d in dep)}), 200
-    except Exception as e: return jsonify({"error":str(e)}), 500
-
-@app.route("/api/admin/promote", methods=["POST"])
-def admin_promote():
-    secret=os.environ.get("ADMIN_SECRET","")
-    if not secret: return jsonify({"error":"ADMIN_SECRET non configure"}), 403
-    body=request.get_json() or {}
-    if body.get("secret")!=secret: return jsonify({"error":"Secret invalide"}), 403
-    email=(body.get("email","")).strip()
-    if not email: return jsonify({"error":"email requis"}), 400
-    try:
-        conn=get_conn(); cur=conn.cursor()
-        cur.execute("UPDATE users SET is_admin=TRUE WHERE email=%s RETURNING id,email",(email,))
-        row=cur.fetchone(); conn.commit()
-        if not row: return jsonify({"error":"Utilisateur introuvable"}), 404
-        return jsonify({"ok":True,"id":row[0],"email":row[1]}), 200
-    except Exception as e: return jsonify({"error":str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=os.environ.get("FLASK_ENV") == "development")
