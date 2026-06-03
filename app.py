@@ -79,6 +79,19 @@ def init_db():
     cur.execute("""CREATE TABLE IF NOT EXISTS patrimoine_data (
         user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         data JSONB NOT NULL DEFAULT \'{}\', updated_at TIMESTAMP DEFAULT NOW())""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS wallet_addresses (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        network TEXT NOT NULL,
+        address TEXT NOT NULL,
+        label TEXT NOT NULL DEFAULT \'\',
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, network, address))""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS site_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW())""")
+    cur.execute("INSERT INTO site_settings (key, value) VALUES ('hidden_tabs', '[]') ON CONFLICT (key) DO NOTHING")
     conn.commit(); cur.close(); conn.close()
     print("\u2705 Base de donnees initialisee")
 
@@ -735,6 +748,219 @@ def marches_index_stocks(index_ticker):
 
 
 
+# ── Wallet crypto (lecture seule) ────────────────────────────────────────────
+
+ETHERSCAN_KEY = os.environ.get("ETHERSCAN_API_KEY", "")
+USDT_ERC20_CONTRACT = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+USDT_SPL_MINT       = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+
+VALID_NETWORKS = {"btc", "eth", "sol", "usdt_erc20", "usdt_spl", "usdt_trc20"}
+
+EUR_TO_FCFA = 655.957  # Parité fixe UEMOA — 1 EUR = 655.957 FCFA
+
+def _fcfa_rates():
+    """Retourne les taux en FCFA et USD pour BTC/ETH/SOL/USDT depuis CoinGecko."""
+    cached = _cache_get("fcfa_rates", 120)
+    if cached: return cached
+    try:
+        import requests as _req
+        r = _req.get(
+            "https://api.coingecko.com/api/v3/simple/price"
+            "?ids=bitcoin,ethereum,solana,tether&vs_currencies=eur,usd",
+            timeout=10, headers={"Accept":"application/json"})
+        if r.status_code == 200:
+            d = r.json()
+            def to_fcfa(coin, fallback_fcfa):
+                eur = d.get(coin, {}).get("eur")
+                return round(eur * EUR_TO_FCFA) if eur else fallback_fcfa
+            def to_usd(coin, fallback_usd):
+                return d.get(coin, {}).get("usd") or fallback_usd
+            rates = {
+                "btc":  to_fcfa("bitcoin",  63000000), "btc_usd":  to_usd("bitcoin",  68000),
+                "eth":  to_fcfa("ethereum",  2300000), "eth_usd":  to_usd("ethereum",   2500),
+                "sol":  to_fcfa("solana",     150000), "sol_usd":  to_usd("solana",      160),
+                "usdt": to_fcfa("tether",        656), "usdt_usd": to_usd("tether",        1),
+            }
+            _cache_set("fcfa_rates", rates)
+            return rates
+    except:
+        pass
+    return {
+        "btc":63000000,"btc_usd":68000,
+        "eth":2300000,"eth_usd":2500,
+        "sol":150000,"sol_usd":160,
+        "usdt":656,"usdt_usd":1,
+    }
+
+def _fetch_btc_balance(address):
+    import requests as _req
+    r = _req.get(f"https://blockstream.info/api/address/{address}", timeout=10)
+    r.raise_for_status()
+    d = r.json()
+    funded = d.get("chain_stats",{}).get("funded_txo_sum",0)
+    spent  = d.get("chain_stats",{}).get("spent_txo_sum",0)
+    return (funded - spent) / 1e8
+
+def _fetch_eth_balance(address):
+    import requests as _req
+    url = f"https://api.etherscan.io/api?module=account&action=balance&address={address}&tag=latest"
+    if ETHERSCAN_KEY: url += f"&apikey={ETHERSCAN_KEY}"
+    r = _req.get(url, timeout=10); d = r.json()
+    if d.get("status") == "1": return int(d["result"]) / 1e18
+    raise ValueError(d.get("message","Etherscan error"))
+
+def _fetch_usdt_erc20_balance(address):
+    import requests as _req
+    url = (f"https://api.etherscan.io/api?module=account&action=tokenbalance"
+           f"&contractaddress={USDT_ERC20_CONTRACT}&address={address}&tag=latest")
+    if ETHERSCAN_KEY: url += f"&apikey={ETHERSCAN_KEY}"
+    r = _req.get(url, timeout=10); d = r.json()
+    if d.get("status") == "1": return int(d["result"]) / 1e6
+    raise ValueError(d.get("message","Etherscan USDT error"))
+
+def _fetch_sol_balance(address):
+    import requests as _req
+    r = _req.post("https://api.mainnet-beta.solana.com",
+        json={"jsonrpc":"2.0","id":1,"method":"getBalance","params":[address]},
+        timeout=10, headers={"Content-Type":"application/json"})
+    return r.json().get("result",{}).get("value",0) / 1e9
+
+def _fetch_usdt_spl_balance(address):
+    import requests as _req
+    r = _req.post("https://api.mainnet-beta.solana.com",
+        json={"jsonrpc":"2.0","id":1,"method":"getTokenAccountsByOwner",
+              "params":[address,{"mint":USDT_SPL_MINT},{"encoding":"jsonParsed"}]},
+        timeout=10, headers={"Content-Type":"application/json"})
+    total = 0.0
+    for acc in r.json().get("result",{}).get("value",[]):
+        amt = acc.get("account",{}).get("data",{}).get("parsed",{}).get("info",{}).get("tokenAmount",{})
+        total += float(amt.get("uiAmount") or 0)
+    return total
+
+def _fetch_usdt_trc20_balance(address):
+    import requests as _req
+    try:
+        r = _req.get(f"https://apilist.tronscanapi.com/api/accountv2?address={address}", timeout=10)
+        for token in r.json().get("trc20token_balances",[]):
+            if token.get("tokenAbbr","").upper() == "USDT":
+                return float(token.get("balance",0)) / 1e6
+    except: pass
+    try:
+        r2 = _req.get(f"https://apilist.tronscanapi.com/api/account/tokens?address={address}&start=0&limit=20", timeout=10)
+        for token in r2.json().get("data",[]):
+            if token.get("tokenAbbr","").upper() == "USDT":
+                return float(token.get("quantity",0))
+    except: pass
+    return 0.0
+
+def _get_balance(network, address):
+    """Retourne (balance, balance_fcfa, balance_usd, coin_key)."""
+    rates = _fcfa_rates()
+    mapping = {
+        "btc":       (_fetch_btc_balance,         "btc"),
+        "eth":       (_fetch_eth_balance,          "eth"),
+        "sol":       (_fetch_sol_balance,          "sol"),
+        "usdt_erc20":(_fetch_usdt_erc20_balance,  "usdt"),
+        "usdt_spl":  (_fetch_usdt_spl_balance,    "usdt"),
+        "usdt_trc20":(_fetch_usdt_trc20_balance,  "usdt"),
+    }
+    if network not in mapping:
+        return 0, 0, 0.0, "usdt"
+    fetch_fn, coin_key = mapping[network]
+    bal = fetch_fn(address)
+    bal_fcfa = round(bal * rates[coin_key])
+    bal_usd  = round(bal * rates[coin_key + "_usd"], 2)
+    return bal, bal_fcfa, bal_usd, coin_key
+
+@app.route("/api/wallet/addresses", methods=["GET"])
+@require_auth
+def wallet_list():
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("SELECT id,network,address,label,created_at FROM wallet_addresses WHERE user_id=%s ORDER BY created_at", (request.user_id,))
+        rows = cur.fetchall()
+        return jsonify([{"id":r[0],"network":r[1],"address":r[2],"label":r[3],"created_at":str(r[4])} for r in rows]), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/wallet/addresses", methods=["POST"])
+@require_auth
+def wallet_add():
+    body = request.get_json() or {}
+    network = body.get("network","").strip().lower()
+    address = body.get("address","").strip()
+    label   = body.get("label","").strip()
+    if not network or not address:
+        return jsonify({"error": "network et address requis"}), 400
+    if network not in VALID_NETWORKS:
+        return jsonify({"error": f"Réseau non supporté. Valeurs: {', '.join(VALID_NETWORKS)}"}), 400
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("INSERT INTO wallet_addresses (user_id,network,address,label) VALUES (%s,%s,%s,%s) RETURNING id",
+                    (request.user_id, network, address, label))
+        new_id = cur.fetchone()[0]; conn.commit()
+        return jsonify({"ok":True,"id":new_id}), 201
+    except Exception as e:
+        if "unique" in str(e).lower():
+            return jsonify({"error": "Cette adresse est déjà enregistrée pour ce réseau"}), 409
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/wallet/addresses/<int:addr_id>", methods=["DELETE"])
+@require_auth
+def wallet_delete(addr_id):
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("DELETE FROM wallet_addresses WHERE id=%s AND user_id=%s RETURNING id", (addr_id, request.user_id))
+        if not cur.fetchone(): return jsonify({"error": "Adresse introuvable"}), 404
+        conn.commit()
+        return jsonify({"ok":True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/wallet/balances", methods=["GET"])
+@require_auth
+def wallet_balances():
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("SELECT id,network,address,label FROM wallet_addresses WHERE user_id=%s ORDER BY created_at", (request.user_id,))
+        rows = cur.fetchall()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    rates = _fcfa_rates()
+    result = []; total_fcfa = 0; total_usd = 0.0
+    for row_id, network, address, label in rows:
+        ck = f"wallet_{network}_{address}"
+        cached = _cache_get(ck, 60)
+        if cached:
+            result.append(cached); total_fcfa += cached.get("balance_fcfa",0); continue
+        try:
+            bal, bal_fcfa, bal_usd, coin_key = _get_balance(network, address)
+            item = {"id":row_id,"network":network,"address":address,"label":label,
+                    "balance":round(bal,8),"balance_fcfa":bal_fcfa,"balance_usd":bal_usd,
+                    "taux_fcfa":rates.get(coin_key,656),"taux_usd":rates.get(coin_key+"_usd",1),"error":None}
+        except Exception as e:
+            item = {"id":row_id,"network":network,"address":address,"label":label,
+                    "balance":0,"balance_fcfa":0,"balance_usd":0.0,"taux_fcfa":0,"taux_usd":0,"error":str(e)}
+        _cache_set(ck, item); result.append(item); total_fcfa += item.get("balance_fcfa",0); total_usd += item.get("balance_usd",0.0)
+    return jsonify({"addresses":result,"total_fcfa":total_fcfa,"total_usd":round(total_usd,2),"rates":rates}), 200
+
+@app.route("/api/wallet/balance/<network>/<path:address>", methods=["GET"])
+@require_auth
+def wallet_single_balance(network, address):
+    if network not in VALID_NETWORKS:
+        return jsonify({"error": "Réseau non supporté"}), 400
+    try:
+        bal, bal_fcfa, bal_usd, coin_key = _get_balance(network, address)
+        rates = _fcfa_rates()
+        item = {"network":network,"address":address,"balance":round(bal,8),
+                "balance_fcfa":bal_fcfa,"balance_usd":bal_usd,
+                "taux_fcfa":rates.get(coin_key,656),"taux_usd":rates.get(coin_key+"_usd",1)}
+        _cache_set(f"wallet_{network}_{address}", item)
+        return jsonify(item), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/admin/stats", methods=["GET"])
 @require_auth
 @require_admin
@@ -746,11 +972,10 @@ def admin_stats():
         cur.execute("SELECT COUNT(*) FROM users WHERE last_login > NOW()-INTERVAL '30 days'"); active_users = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM users WHERE last_login > NOW()-INTERVAL '7 days'"); active_7j = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM users WHERE created_at > NOW()-INTERVAL '30 days'"); new_30j = cur.fetchone()[0]
-        return jsonify({"total_users": total_users, "total_admins": total_admins,
-                        "active_users": active_users, "active_7j": active_7j, "new_30j": new_30j}), 200
+        return jsonify({"total_users":total_users,"total_admins":total_admins,
+                        "active_users":active_users,"active_7j":active_7j,"new_30j":new_30j}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/api/admin/users", methods=["GET"])
 @require_auth
@@ -758,19 +983,108 @@ def admin_stats():
 def admin_list_users():
     try:
         conn = get_conn(); cur = conn.cursor()
-        cur.execute("SELECT u.id, u.email, u.nom, u.is_admin, u.created_at, u.last_login FROM users u ORDER BY u.created_at DESC")
+        cur.execute("SELECT id,email,nom,is_admin,created_at,last_login FROM users ORDER BY created_at DESC")
         rows = cur.fetchall()
-        result = [{"id": r[0], "email": r[1], "nom": r[2], "is_admin": r[3],
-                   "created_at": str(r[4]), "last_login": str(r[5])} for r in rows]
-        return jsonify({"users": result}), 200
+        return jsonify({"users":[{"id":r[0],"email":r[1],"nom":r[2],"is_admin":r[3],
+                                   "created_at":str(r[4]),"last_login":str(r[5])} for r in rows]}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/admin/user/<int:uid>/promote", methods=["POST"])
+@require_auth
+@require_admin
+def admin_promote(uid):
+    try:
+        body = request.get_json() or {}
+        is_admin = bool(body.get("is_admin", True))
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("UPDATE users SET is_admin=%s WHERE id=%s", (is_admin, uid))
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({"ok": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/user/<int:uid>/reset", methods=["POST"])
+@require_auth
+@require_admin
+def admin_reset_data(uid):
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("DELETE FROM patrimoine_data WHERE user_id=%s", (uid,))
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({"ok": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/user/<int:uid>", methods=["DELETE"])
+@require_auth
+@require_admin
+def admin_delete_user(uid):
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("DELETE FROM users WHERE id=%s", (uid,))
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({"ok": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/user/<int:uid>/data", methods=["GET"])
+@require_auth
+@require_admin
+def admin_get_user_data(uid):
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("SELECT data FROM patrimoine_data WHERE user_id=%s", (uid,))
+        row = cur.fetchone()
+        cur.close(); conn.close()
+        return jsonify(row[0] if row else {}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/settings", methods=["GET"])
+@require_auth
+@require_admin
+def admin_get_settings():
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("SELECT key, value FROM site_settings")
+        rows = cur.fetchall()
+        cur.close(); conn.close()
+        return jsonify({r[0]: json.loads(r[1]) for r in rows}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/settings", methods=["POST"])
+@require_auth
+@require_admin
+def admin_update_settings():
+    try:
+        body = request.get_json() or {}
+        conn = get_conn(); cur = conn.cursor()
+        for key, value in body.items():
+            cur.execute("""INSERT INTO site_settings (key, value, updated_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()""",
+                (key, json.dumps(value)))
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({"ok": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/settings", methods=["GET"])
+def public_settings():
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("SELECT value FROM site_settings WHERE key='hidden_tabs'")
+        row = cur.fetchone()
+        cur.close(); conn.close()
+        return jsonify({"hidden_tabs": json.loads(row[0]) if row else []}), 200
+    except Exception as e:
+        return jsonify({"hidden_tabs": []}), 200
 
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"}), 200
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

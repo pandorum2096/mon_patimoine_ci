@@ -1,0 +1,138 @@
+<svg viewBox="0 0 790 530" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Arial, sans-serif" style="">
+  <title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Schéma Wallet Niveau 1 — Lecture seule</title>
+
+  <!-- Background -->
+  <rect width="780" height="520" fill="var(--background, #0F1219)" rx="12" style="fill:rgb(15, 18, 25);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Title -->
+  <text x="390" y="36" text-anchor="middle" fill="#A78BFA" font-size="15" font-weight="700" style="fill:rgb(167, 139, 250);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:15px;font-weight:700;text-anchor:middle;dominant-baseline:auto">🔍 Wallet Niveau 1 — Connexion lecture seule</text>
+  <text x="390" y="54" text-anchor="middle" fill="#6B7280" font-size="11" style="fill:rgb(107, 114, 128);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:11px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Tu ne touches jamais les fonds · Zéro responsabilité · 100% légal</text>
+
+  <!-- ═══ ZONE UTILISATEUR ═══ -->
+  <rect x="20" y="72" width="200" height="370" rx="10" fill="none" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" style="fill:none;stroke:rgb(55, 65, 81);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-dasharray:5px, 3px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="120" y="92" text-anchor="middle" fill="#9CA3AF" font-size="10" font-weight="700" letter-spacing="1" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:10px;font-weight:700;text-anchor:middle;dominant-baseline:auto">UTILISATEUR</text>
+
+  <!-- Utilisateur icon -->
+  <circle cx="120" cy="135" r="22" fill="#1E1B4B" style="fill:rgb(30, 27, 75);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <circle cx="120" cy="126" r="10" fill="#6D28D9" style="fill:rgb(109, 40, 217);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <ellipse cx="120" cy="148" rx="16" ry="9" fill="#6D28D9" style="fill:rgb(109, 40, 217);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="120" y="170" text-anchor="middle" fill="#C4B5FD" font-size="10" style="fill:rgb(196, 181, 253);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:10px;font-weight:400;text-anchor:middle;dominant-baseline:auto">M. Touré</text>
+
+  <!-- Wallets list -->
+  <rect x="40" y="185" width="160" height="34" rx="6" fill="#1F2937" style="fill:rgb(31, 41, 55);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="56" y="199" fill="#F59E0B" font-size="13" style="fill:rgb(245, 158, 11);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:13px;font-weight:400;text-anchor:start;dominant-baseline:auto">₿</text>
+  <text x="74" y="199" fill="#E5E7EB" font-size="10" font-weight="600" style="fill:rgb(229, 231, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:10px;font-weight:600;text-anchor:start;dominant-baseline:auto">Bitcoin</text>
+  <text x="74" y="211" fill="#6B7280" font-size="9" style="fill:rgb(107, 114, 128);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:start;dominant-baseline:auto">bc1qxy2kg…</text>
+  <circle cx="185" cy="202" r="5" fill="#10B981" style="fill:rgb(16, 185, 129);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <rect x="40" y="225" width="160" height="34" rx="6" fill="#1F2937" style="fill:rgb(31, 41, 55);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="56" y="239" fill="#627EEA" font-size="13" style="fill:rgb(98, 126, 234);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:13px;font-weight:400;text-anchor:start;dominant-baseline:auto">Ξ</text>
+  <text x="74" y="239" fill="#E5E7EB" font-size="10" font-weight="600" style="fill:rgb(229, 231, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:10px;font-weight:600;text-anchor:start;dominant-baseline:auto">Ethereum</text>
+  <text x="74" y="251" fill="#6B7280" font-size="9" style="fill:rgb(107, 114, 128);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:start;dominant-baseline:auto">0x71C7656E…</text>
+  <circle cx="185" cy="242" r="5" fill="#10B981" style="fill:rgb(16, 185, 129);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <rect x="40" y="265" width="160" height="34" rx="6" fill="#1F2937" style="fill:rgb(31, 41, 55);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="54" y="279" fill="#26A17B" font-size="11" font-weight="700" style="fill:rgb(38, 161, 123);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:11px;font-weight:700;text-anchor:start;dominant-baseline:auto">₮</text>
+  <text x="74" y="279" fill="#E5E7EB" font-size="10" font-weight="600" style="fill:rgb(229, 231, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:10px;font-weight:600;text-anchor:start;dominant-baseline:auto">USDT (TRC20)</text>
+  <text x="74" y="291" fill="#6B7280" font-size="9" style="fill:rgb(107, 114, 128);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:start;dominant-baseline:auto">TQn5gt3…</text>
+  <circle cx="185" cy="282" r="5" fill="#10B981" style="fill:rgb(16, 185, 129);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Add wallet button -->
+  <rect x="40" y="308" width="160" height="28" rx="6" fill="rgba(109,40,217,0.2)" stroke="#6D28D9" stroke-width="1" style="fill:rgba(109, 40, 217, 0.2);stroke:rgb(109, 40, 217);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="120" y="326" text-anchor="middle" fill="#A78BFA" font-size="10" style="fill:rgb(167, 139, 250);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:10px;font-weight:400;text-anchor:middle;dominant-baseline:auto">+ Ajouter une adresse</text>
+
+  <!-- Saisie label -->
+  <text x="120" y="362" text-anchor="middle" fill="#6B7280" font-size="9" style="fill:rgb(107, 114, 128);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Saisie : adresse publique uniquement</text>
+  <text x="120" y="375" text-anchor="middle" fill="#EF4444" font-size="9" font-weight="700" style="fill:rgb(239, 68, 68);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:700;text-anchor:middle;dominant-baseline:auto">Jamais la clé privée !</text>
+
+  <!-- ═══ FLÈCHES VERS BACKEND ═══ -->
+  <!-- Flèche requête -->
+  <line x1="220" y1="240" x2="300" y2="240" stroke="#6D28D9" stroke-width="1.5" marker-end="url(#arrow-purple)" style="fill:rgb(0, 0, 0);stroke:rgb(109, 40, 217);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="258" y="232" text-anchor="middle" fill="#8B5CF6" font-size="9" style="fill:rgb(139, 92, 246);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">adresse publique</text>
+
+  <!-- Flèche retour -->
+  <line x1="300" y1="260" x2="220" y2="260" stroke="#10B981" stroke-width="1.5" marker-end="url(#arrow-green)" style="fill:rgb(0, 0, 0);stroke:rgb(16, 185, 129);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="258" y="278" text-anchor="middle" fill="#10B981" font-size="9" style="fill:rgb(16, 185, 129);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">solde + historique</text>
+
+  <!-- ═══ ZONE BACKEND ═══ -->
+  <rect x="300" y="72" width="180" height="200" rx="10" fill="none" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" style="fill:none;stroke:rgb(55, 65, 81);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-dasharray:5px, 3px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="390" y="92" text-anchor="middle" fill="#9CA3AF" font-size="10" font-weight="700" letter-spacing="1" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:10px;font-weight:700;text-anchor:middle;dominant-baseline:auto">BACKEND FLASK</text>
+
+  <!-- Route -->
+  <rect x="318" y="100" width="144" height="50" rx="6" fill="#1F2937" stroke="#374151" style="fill:rgb(31, 41, 55);stroke:rgb(55, 65, 81);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="390" y="117" text-anchor="middle" fill="#A78BFA" font-size="9" font-weight="700" style="fill:rgb(167, 139, 250);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:700;text-anchor:middle;dominant-baseline:auto">GET /api/wallet/balance</text>
+  <text x="390" y="132" text-anchor="middle" fill="#6B7280" font-size="9" style="fill:rgb(107, 114, 128);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Reçoit l'adresse</text>
+  <text x="390" y="144" text-anchor="middle" fill="#6B7280" font-size="9" style="fill:rgb(107, 114, 128);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Appelle l'API blockchain</text>
+
+  <!-- Cache -->
+  <rect x="318" y="160" width="144" height="40" rx="6" fill="#1F2937" stroke="#374151" style="fill:rgb(31, 41, 55);stroke:rgb(55, 65, 81);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="390" y="177" text-anchor="middle" fill="#F59E0B" font-size="9" font-weight="700" style="fill:rgb(245, 158, 11);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:700;text-anchor:middle;dominant-baseline:auto">⚡ Cache 5 min</text>
+  <text x="390" y="191" text-anchor="middle" fill="#6B7280" font-size="9" style="fill:rgb(107, 114, 128);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Limite les appels API</text>
+
+  <!-- Convert FCFA -->
+  <rect x="318" y="210" width="144" height="40" rx="6" fill="#1F2937" stroke="#374151" style="fill:rgb(31, 41, 55);stroke:rgb(55, 65, 81);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="390" y="227" text-anchor="middle" fill="#C9A84C" font-size="9" font-weight="700" style="fill:rgb(201, 168, 76);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:700;text-anchor:middle;dominant-baseline:auto">💱 Conversion FCFA</text>
+  <text x="390" y="241" text-anchor="middle" fill="#6B7280" font-size="9" style="fill:rgb(107, 114, 128);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">via taux CoinGecko</text>
+
+  <!-- ═══ FLÈCHES VERS APIs ═══ -->
+  <line x1="480" y1="150" x2="540" y2="150" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow-gray)" style="fill:rgb(0, 0, 0);stroke:rgb(55, 65, 81);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <line x1="480" y1="230" x2="540" y2="230" stroke="#374151" stroke-width="1.5" marker-end="url(#arrow-gray)" style="fill:rgb(0, 0, 0);stroke:rgb(55, 65, 81);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- ═══ APIS EXTERNES ═══ -->
+  <rect x="540" y="72" width="220" height="370" rx="10" fill="none" stroke="#374151" stroke-width="1.5" stroke-dasharray="5,3" style="fill:none;stroke:rgb(55, 65, 81);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-dasharray:5px, 3px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="650" y="92" text-anchor="middle" fill="#9CA3AF" font-size="10" font-weight="700" letter-spacing="1" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:10px;font-weight:700;text-anchor:middle;dominant-baseline:auto">APIs BLOCKCHAIN (GRATUITES)</text>
+
+  <!-- Bitcoin -->
+  <rect x="558" y="100" width="184" height="55" rx="8" fill="#1F2937" stroke="#F59E0B" stroke-width="1" style="fill:rgb(31, 41, 55);stroke:rgb(245, 158, 11);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="650" y="118" text-anchor="middle" fill="#F59E0B" font-size="12" font-weight="700" style="fill:rgb(245, 158, 11);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:700;text-anchor:middle;dominant-baseline:auto">₿ Bitcoin</text>
+  <text x="650" y="132" text-anchor="middle" fill="#9CA3AF" font-size="9" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">blockchain.info/address/</text>
+  <text x="650" y="145" text-anchor="middle" fill="#9CA3AF" font-size="9" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">blockstream.info/api/</text>
+
+  <!-- Ethereum -->
+  <rect x="558" y="165" width="184" height="55" rx="8" fill="#1F2937" stroke="#627EEA" stroke-width="1" style="fill:rgb(31, 41, 55);stroke:rgb(98, 126, 234);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="650" y="183" text-anchor="middle" fill="#627EEA" font-size="12" font-weight="700" style="fill:rgb(98, 126, 234);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:700;text-anchor:middle;dominant-baseline:auto">Ξ Ethereum / ERC-20</text>
+  <text x="650" y="197" text-anchor="middle" fill="#9CA3AF" font-size="9" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">etherscan.io/api</text>
+  <text x="650" y="210" text-anchor="middle" fill="#9CA3AF" font-size="9" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Clé gratuite (100k req/jour)</text>
+
+  <!-- USDT TRC20 -->
+  <rect x="558" y="230" width="184" height="55" rx="8" fill="#1F2937" stroke="#26A17B" stroke-width="1" style="fill:rgb(31, 41, 55);stroke:rgb(38, 161, 123);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="650" y="248" text-anchor="middle" fill="#26A17B" font-size="12" font-weight="700" style="fill:rgb(38, 161, 123);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:12px;font-weight:700;text-anchor:middle;dominant-baseline:auto">₮ USDT / TRC-20</text>
+  <text x="650" y="262" text-anchor="middle" fill="#9CA3AF" font-size="9" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">tronscan.org/api</text>
+  <text x="650" y="275" text-anchor="middle" fill="#9CA3AF" font-size="9" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Gratuit, pas de clé requise</text>
+
+  <!-- CoinGecko -->
+  <rect x="558" y="295" width="184" height="45" rx="8" fill="#1F2937" stroke="#10B981" stroke-width="1" style="fill:rgb(31, 41, 55);stroke:rgb(16, 185, 129);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="650" y="313" text-anchor="middle" fill="#10B981" font-size="11" font-weight="700" style="fill:rgb(16, 185, 129);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:11px;font-weight:700;text-anchor:middle;dominant-baseline:auto">💹 CoinGecko</text>
+  <text x="650" y="328" text-anchor="middle" fill="#9CA3AF" font-size="9" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Taux BTC/ETH/USDT → FCFA</text>
+
+  <!-- Note sécurité -->
+  <rect x="558" y="350" width="184" height="45" rx="8" fill="rgba(239,68,68,0.08)" stroke="#EF4444" stroke-width="1" style="fill:rgba(239, 68, 68, 0.08);stroke:rgb(239, 68, 68);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="650" y="368" text-anchor="middle" fill="#EF4444" font-size="10" font-weight="700" style="fill:rgb(239, 68, 68);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:10px;font-weight:700;text-anchor:middle;dominant-baseline:auto">🔒 Lecture seule</text>
+  <text x="650" y="382" text-anchor="middle" fill="#9CA3AF" font-size="9" style="fill:rgb(156, 163, 175);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">Aucune clé privée transmise</text>
+
+  <!-- ═══ ZONE AFFICHAGE ═══ -->
+  <rect x="20" y="455" width="740" height="52" rx="10" fill="#1E1B4B" stroke="#6D28D9" stroke-width="1" style="fill:rgb(30, 27, 75);stroke:rgb(109, 40, 217);color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="390" y="472" text-anchor="middle" fill="#A78BFA" font-size="10" font-weight="700" style="fill:rgb(167, 139, 250);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:10px;font-weight:700;text-anchor:middle;dominant-baseline:auto">💰 Affichage dans Mon Patrimoine CI</text>
+  <text x="200" y="492" text-anchor="middle" fill="#E5E7EB" font-size="9" style="fill:rgb(229, 231, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">BTC : 0.045 ₿ = 2 340 000 FCFA</text>
+  <text x="390" y="492" text-anchor="middle" fill="#E5E7EB" font-size="9" style="fill:rgb(229, 231, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">ETH : 0.8 Ξ = 3 120 000 FCFA</text>
+  <text x="580" y="492" text-anchor="middle" fill="#E5E7EB" font-size="9" style="fill:rgb(229, 231, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:9px;font-weight:400;text-anchor:middle;dominant-baseline:auto">USDT : 500 ₮ = 305 000 FCFA</text>
+
+  <!-- Flèche vers affichage -->
+  <line x1="390" y1="440" x2="390" y2="456" stroke="#6D28D9" stroke-width="1.5" marker-end="url(#arrow-purple)" style="fill:rgb(0, 0, 0);stroke:rgb(109, 40, 217);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Flèche retour depuis APIs vers display zone (via backend) -->
+  <line x1="390" y1="272" x2="390" y2="300" stroke="#10B981" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arrow-green)" style="fill:rgb(0, 0, 0);stroke:rgb(16, 185, 129);color:rgb(255, 255, 255);stroke-width:1px;stroke-dasharray:3px, 2px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:Arial, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Defs -->
+  <defs>
+    <marker id="arrow-purple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#6D28D9"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#10B981"/>
+    </marker>
+    <marker id="arrow-gray" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#6B7280"/>
+    </marker>
+  </defs>
+</svg>
