@@ -6355,8 +6355,14 @@ function App() {
   };
 
   const toggleTheme = () => {
-    setTheme(t => t === "dark" ? "light" : "dark");
+    setTheme(t => {
+      const next = t === "dark" ? "light" : "dark";
+      applyTheme(next);
+      return next;
+    });
   };
+
+  React.useEffect(() => { applyTheme(theme); }, []);
 
   React.useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(cfg => setHiddenTabs(cfg.hidden_tabs || [])).catch(() => {});
