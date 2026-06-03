@@ -6490,25 +6490,25 @@ function App() {
       </div>
 
       {/* Card principale */}
-      <div style={{ position:"relative",zIndex:1,width:"100%",maxWidth:420,padding:"0 20px",animation:"loginFadeIn 0.5s ease" }}>
+      <div style={{ position:"relative",zIndex:1,width:"100%",maxWidth:500,padding:"0 20px",animation:"loginFadeIn 0.5s ease" }}>
 
         {/* Logo */}
-        <div style={{ textAlign:"center",marginBottom:32,animation:"float 4s ease-in-out infinite" }}>
-          <div style={{ display:"inline-flex",alignItems:"center",justifyContent:"center",width:60,height:60,borderRadius:"50%",background:"rgba(0,200,255,0.08)",border:"1px solid rgba(0,200,255,0.2)",marginBottom:16,boxShadow:"0 0 30px rgba(0,200,255,0.15)" }}>
-            <span style={{ fontSize:26 }}>💎</span>
+        <div style={{ textAlign:"center",marginBottom:20 }}>
+          <div style={{ display:"inline-flex",alignItems:"center",justifyContent:"center",width:72,height:72,borderRadius:"50%",background:"rgba(0,200,255,0.08)",border:"1px solid rgba(0,200,255,0.2)",marginBottom:12,boxShadow:"0 0 40px rgba(0,200,255,0.2)" }}>
+            <span style={{ fontSize:32 }}>💎</span>
           </div>
-          <div style={{ fontSize:24,fontWeight:800,color:"var(--cyan)",fontFamily:"'Space Mono',monospace",letterSpacing:"0.06em",textShadow:"0 0 20px rgba(0,200,255,0.4)" }}>PATRIMOINE/CI</div>
-          <div style={{ fontSize:12,color:"var(--muted)",marginTop:6,letterSpacing:"0.04em" }}>Gestion financière personnelle · FCFA</div>
+          <div style={{ fontSize:28,fontWeight:800,color:"var(--cyan)",fontFamily:"'Space Mono',monospace",letterSpacing:"0.06em",textShadow:"0 0 20px rgba(0,200,255,0.4)" }}>PATRIMOINE/CI</div>
+          <div style={{ fontSize:14,color:"var(--muted)",marginTop:8,letterSpacing:"0.04em" }}>Gestion financière personnelle · FCFA</div>
         </div>
 
         {/* Formulaire */}
-        <div style={{ background:"rgba(11,22,40,0.85)",backdropFilter:"blur(20px)",border:"1px solid rgba(0,200,255,0.12)",borderRadius:20,padding:32,boxShadow:"0 24px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+        <div style={{ background:"rgba(11,22,40,0.85)",backdropFilter:"blur(20px)",border:"1px solid rgba(0,200,255,0.12)",borderRadius:20,padding:"32px 40px",boxShadow:"0 24px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
 
           {/* Onglets */}
           <div style={{ display:"flex",background:"rgba(0,0,0,0.3)",borderRadius:10,padding:3,marginBottom:28 }}>
             {[["login","Connexion"],["register","Inscription"]].map(([m,l]) => (
               <button key={m} onClick={() => { setAuthMode(m); setAuthError(""); }} style={{
-                flex:1, padding:"9px 0", borderRadius:8, cursor:"pointer", fontWeight:600, fontSize:13,
+                flex:1, padding:"10px 0", borderRadius:8, cursor:"pointer", fontWeight:600, fontSize:14,
                 background: authMode===m ? "rgba(0,200,255,0.12)" : "transparent",
                 border: `1px solid ${authMode===m ? "rgba(0,200,255,0.3)" : "transparent"}`,
                 color: authMode===m ? "var(--cyan)" : "var(--muted)",
@@ -6518,7 +6518,7 @@ function App() {
             ))}
           </div>
 
-          <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+          <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
             {authMode === "register" && (
               <div style={{ position:"relative" }}>
                 <span style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:14,opacity:0.4 }}>👤</span>
@@ -6549,8 +6549,8 @@ function App() {
             )}
 
             <button onClick={authMode==="login" ? handleLogin : handleRegister} disabled={authLoading} style={{
-              marginTop:4, padding:"14px 0", borderRadius:12, cursor: authLoading?"not-allowed":"pointer",
-              fontWeight:700, fontSize:14, fontFamily:"'Space Grotesk',sans-serif",
+              marginTop:8, padding:"14px 0", borderRadius:12, cursor: authLoading?"not-allowed":"pointer",
+              fontWeight:700, fontSize:15, fontFamily:"'Space Grotesk',sans-serif",
               background: authLoading ? "rgba(0,200,255,0.05)" : "linear-gradient(135deg,rgba(0,200,255,0.2),rgba(123,95,255,0.2))",
               border:"1px solid rgba(0,200,255,0.35)",
               color: authLoading ? "var(--muted)" : "var(--cyan)",
