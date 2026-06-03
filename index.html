@@ -728,7 +728,7 @@ async function loadDataFromAPI() {
   if (!token) return { ...DEFAULT_STATE };
   try {
     const r = await fetch(API_BASE + "/api/load", { headers: authHeaders() });
-    if (r.status === 401) { clearToken(); return null; }  // null = forcer logout
+    if (r.status === 401) { clearToken(); if (_setAuthUser) _setAuthUser(null); return null; }  // null = forcer logout
     if (!r.ok) throw new Error("HTTP " + r.status);
     const d = await r.json();
     // Si les données existent et ont un profil configuré → utiliser telles quelles
@@ -6349,7 +6349,10 @@ function App() {
         method: "POST",
         headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
         body: JSON.stringify(newData),
-      }).then(r => setSaveStatus(r.ok ? "ok" : "error"))
+      }).then(r => {
+          if (r.status === 401) { clearToken(); if (_setAuthUser) _setAuthUser(null); return; }
+          setSaveStatus(r.ok ? "ok" : "error");
+        })
         .catch(() => setSaveStatus("error"));
     }, 1200);
   };
@@ -6363,6 +6366,13 @@ function App() {
   };
 
   React.useEffect(() => { applyTheme(theme); }, []);
+
+  // Enregistrer le callback global pour forcer la déconnexion sur token expiré
+  React.useEffect(() => {
+    _setAuthUser = setAuthUser;
+    _setSaveStatus = setSaveStatus;
+    return () => { _setAuthUser = null; _setSaveStatus = null; };
+  }, []);
 
   React.useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(cfg => setHiddenTabs(cfg.hidden_tabs || [])).catch(() => {});
