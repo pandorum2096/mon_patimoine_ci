@@ -5612,7 +5612,7 @@ const ALL_TABS_META = [
   { id:"profil",     label:"Profil",     icon:"👤" },
 ];
 
-function AdminPanel({ authUser }) {
+function AdminPanel({ authUser, onHiddenTabsChange }) {
   const isMobile = useMobile();
   const tok = getToken();
   const api = (url, opts={}) => fetch(url, { headers: { Authorization: `Bearer ${tok}`, "Content-Type":"application/json", ...(opts.headers||{}) }, ...opts });
@@ -5706,7 +5706,14 @@ function AdminPanel({ authUser }) {
   const saveMenus = () => {
     setMenuSaving(true);
     api("/api/admin/settings", { method:"POST", body:JSON.stringify({hidden_tabs:hiddenTabs}) })
-      .then(r => setMenuMsg(r.ok ? "✓ Sauvegardé" : "✗ Erreur"))
+      .then(r => {
+        if (r.ok) {
+          setMenuMsg("✓ Sauvegardé");
+          if (typeof onHiddenTabsChange === "function") onHiddenTabsChange(hiddenTabs);
+        } else {
+          setMenuMsg("✗ Erreur");
+        }
+      })
       .catch(() => setMenuMsg("✗ Erreur réseau"))
       .finally(() => setMenuSaving(false));
   };
@@ -6762,7 +6769,7 @@ function App() {
         {activeTab==="wallet"     && <TabWallet     />}
         {activeTab==="formation"  && <TabFormation  />}
         {activeTab==="profil"     && <TabProfil     data={data} setData={setData} mois={mois} onReset={() => setData({...DEFAULT_STATE})} />}
-        {activeTab==="admin"      && isAdmin && <AdminPanel authUser={authUser} />}
+        {activeTab==="admin"      && isAdmin && <AdminPanel authUser={authUser} onHiddenTabsChange={setHiddenTabs} />}
       </main>
 
       {pendingMois && (
