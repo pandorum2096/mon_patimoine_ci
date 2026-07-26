@@ -711,24 +711,45 @@ function clearToken() {
   window._patrimoineToken = "";
   try { localStorage.removeItem(TOKEN_KEY); } catch(_){}
   try { sessionStorage.removeItem(TOKEN_KEY); } catch(_){}
+  // Ancienne cle de secours : elle survivait a la deconnexion et laissait
+  // trainer un token perime dans le navigateur.
+  try { sessionStorage.removeItem("patrimoine_token_fallback"); } catch(_){}
+  try { localStorage.removeItem("patrimoine_token_fallback"); } catch(_){}
 }
 function authHeaders() {
   return { "Content-Type": "application/json", "Authorization": "Bearer " + getToken() };
 }
 
-async function apiPost(path, body) {
-  const r = await fetch(API_BASE + path, {
-    method: "POST", headers: authHeaders(), body: JSON.stringify(body),
-  });
+// ─── Couche API unique ───────────────────────────────────────────────────────
+// TOUS les appels authentifies passent par apiFetch. C'est le seul endroit qui
+// ajoute le token et qui reagit au 401 — expiration, revocation (mot de passe
+// change) ou compte supprime. Avant, chaque appelant gerait le 401 dans son coin
+// et la plupart l'oubliaient : la session expirait sans jamais renvoyer au login.
+// Ne pas rajouter de fetch("/api/...") direct ailleurs : passer par apiFetch.
+function onSessionLost() {
+  clearToken();
+  if (_setAuthUser) _setAuthUser(null);
+}
+
+async function apiFetch(path, opts = {}) {
+  const { auth = true, headers: extraHeaders, ...rest } = opts;
+  const headers = { "Content-Type": "application/json", ...(extraHeaders || {}) };
+  if (auth) headers["Authorization"] = "Bearer " + getToken();
+  const r = await fetch(API_BASE + path, { ...rest, headers });
+  if (auth && r.status === 401) onSessionLost();
   return r;
+}
+
+async function apiPost(path, body) {
+  return apiFetch(path, { method: "POST", body: JSON.stringify(body) });
 }
 
 async function loadDataFromAPI() {
   const token = getToken();
   if (!token) return { ...DEFAULT_STATE };
   try {
-    const r = await fetch(API_BASE + "/api/load", { headers: authHeaders() });
-    if (r.status === 401) { clearToken(); if (_setAuthUser) _setAuthUser(null); return null; }  // null = forcer logout
+    const r = await apiFetch("/api/load");
+    if (r.status === 401) return null;  // null = forcer logout (deja purge par apiFetch)
     if (!r.ok) throw new Error("HTTP " + r.status);
     const d = await r.json();
     // Si les données existent et ont un profil configuré → utiliser telles quelles
@@ -751,14 +772,8 @@ async function saveDataAsync(data) {
   const token = getToken();
   if (!token) return;
   try {
-    const r = await fetch(API_BASE + "/api/save", {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify(data),
-    });
+    const r = await apiFetch("/api/save", { method: "POST", body: JSON.stringify(data) });
     if (r.status === 401) {
-      clearToken();
-      if (_setAuthUser) _setAuthUser(null);
       if (_setSaveStatus) _setSaveStatus("error");
       return false;
     }
@@ -1100,13 +1115,12 @@ function AuthScreen({ onAuth }) {
       const d = await r.json();
       if (!r.ok) { setError(d.error || "Erreur"); setLoading(false); return; }
       setToken(d.token);
-      // Diagnostic : vérifier que le token est bien stocké
-      const storedToken = getToken();
-      console.log("[Auth] Token reçu :", d.token ? d.token.substring(0, 30) + "..." : "VIDE");
-      console.log("[Auth] Token stocké dans localStorage :", storedToken ? storedToken.substring(0, 30) + "..." : "VIDE ← PROBLÈME");
-      if (!storedToken) {
-        console.error("[Auth] ERREUR : localStorage ne persiste pas ! Essai avec sessionStorage...");
-        try { sessionStorage.setItem("patrimoine_token_fallback", d.token); } catch(_){}
+      // Ne jamais journaliser le token, meme tronque : la console est lisible
+      // par toute extension installee dans le navigateur.
+      if (!getToken()) {
+        setError("Token invalide reçu du serveur. Réessayez.");
+        setLoading(false);
+        return;
       }
       onAuth(d);
     } catch (e) {
@@ -2318,7 +2332,7 @@ function TabGraphiques({ data, mois }) {
 }
 
 // ─── ONGLET OBJECTIFS ────────────────────────────────────────────────────────────
-function TabObjectifs({ data, setData, mois }) {
+function TabObjectifs({ data, setData, mois, userPlan, onUpgrade }) {
   const isMobile = useMobile();
   const [showForm, setShowForm] = useState(false);
   const [nom, setNom] = useState("");
@@ -2333,6 +2347,10 @@ function TabObjectifs({ data, setData, mois }) {
   const creerObjectif = () => {
     const c = parseFloat(cible);
     if (!nom.trim() || isNaN(c) || c <= 0) return;
+    if (userPlan && !userPlan.is_premium && data.objectifs.length >= (userPlan.max_objectifs || 2)) {
+      if (onUpgrade) onUpgrade("limit_objectifs");
+      return;
+    }
     const obj = { id: genId(), nom: nom.trim(), cible: c, epargne: 0, icon };
     setData({ ...data, objectifs: [...data.objectifs, obj] });
     setNom(""); setCible(""); setIcon("🏠"); setShowForm(false);
@@ -2862,7 +2880,7 @@ function TabInvestir({ data, setData, mois }) {
   );
 }
 // ─── ONGLET CONSEIL ──────────────────────────────────────────────────────────────
-function TabConseil({ data, mois }) {
+function TabConseil({ data, mois, userPlan, setUserPlan, onUpgrade }) {
   const isMobile = useMobile();
   const solde = getSolde(data, mois);
   const { profilRisque } = data.profil;
@@ -3221,7 +3239,7 @@ function OllamaConseil({ data, mois }) {
   useEffect(() => {
     const token = getToken();
     const viaFlask = token
-      ? fetch("/api/ollama-models", { headers: { Authorization: "Bearer " + token }, cache: "no-store" })
+      ? apiFetch("/api/ollama-models", { cache: "no-store" })
           .then(r => r.json()).then(d => d.ok && d.models.length ? d.models : null).catch(() => null)
       : Promise.resolve(null);
 
@@ -3302,16 +3320,19 @@ MISSION : Donne 4 à 5 conseils financiers personnalisés, précis et actionnabl
 
     // Appel Flask — si Flask répond (même avec erreur), on affiche le vrai message
     // Si Flask est totalement injoignable (réseau), on tente Ollama direct en fallback
-    fetch("/api/conseil-ia", {
+    apiFetch("/api/conseil-ia", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
       body: JSON.stringify({ profile:data.profil, revenus, depenses, solde, epargne, patrimoine, objectifs, actifs, mois, model:iaModel })
     })
     .then(r => r.json())
     .then(d => {
       setIaLoading(false);
-      if (d.ok) setIaResponse(d.conseil);
-      else setIaError(d.error || "Erreur inconnue du serveur.");
+      if (d.upgrade) { if (onUpgrade) onUpgrade("limit_ia"); return; }
+      if (d.ok) {
+        setIaResponse(d.conseil);
+        if (d.ia_calls_remaining !== undefined && setUserPlan)
+          setUserPlan(prev => ({ ...prev, ia_calls_remaining: d.ia_calls_remaining }));
+      } else setIaError(d.error || "Erreur inconnue du serveur.");
     })
     .catch(() => {
       // Flask totalement injoignable → fallback Ollama direct (dev local sans Flask)
@@ -4139,16 +4160,11 @@ function TabMarches() {
 
   React.useEffect(() => { const t = setTimeout(()=>setMounted(true),80); return ()=>clearTimeout(t); }, []);
 
-  const getHeaders = () => {
-    const tok = localStorage.getItem("patrimoine_token") || sessionStorage.getItem("patrimoine_token") || "";
-    return { Authorization: `Bearer ${tok}` };
-  };
-
   const fetchSection = React.useCallback((sec) => {
     setLoading(l => ({...l, [sec]:true}));
     setError(e => ({...e, [sec]:null}));
     const endpoints = { crypto:"/api/marches/crypto", indices:"/api/marches/indices" };
-    fetch(endpoints[sec], { headers: getHeaders() })
+    apiFetch(endpoints[sec])
       .then(r => r.json())
       .then(d => {
         if (d.error) { setError(e=>({...e,[sec]:d.error})); setLoading(l=>({...l,[sec]:false})); return; }
@@ -4173,8 +4189,7 @@ function TabMarches() {
   const fetchDetail = React.useCallback((coinId, days) => {
     setDetailLoading(true);
     setDetail(null);
-    const tok = localStorage.getItem("patrimoine_token") || sessionStorage.getItem("patrimoine_token") || "";
-    fetch(`/api/marches/crypto/${coinId}?days=${days}`, { headers: { Authorization: `Bearer ${tok}` } })
+    apiFetch(`/api/marches/crypto/${coinId}?days=${days}`)
       .then(r => r.json())
       .then(d => {
         if (d.error) {
@@ -4201,14 +4216,9 @@ function TabMarches() {
     if (selectedCrypto) fetchDetail(selectedCrypto.id, d);
   };
 
-  const getTokenH = () => {
-    const tok = localStorage.getItem("patrimoine_token") || sessionStorage.getItem("patrimoine_token") || "";
-    return { Authorization: `Bearer ${tok}` };
-  };
-
   const fetchIndexChart = React.useCallback((ticker, days) => {
     setIndexChartLoad(true); setIndexChart([]);
-    fetch(`/api/marches/indices/${encodeURIComponent(ticker)}/chart?days=${days}`, { headers: getTokenH() })
+    apiFetch(`/api/marches/indices/${encodeURIComponent(ticker)}/chart?days=${days}`)
       .then(r => r.json())
       .then(d => { setIndexChart(Array.isArray(d) ? d : []); setIndexChartLoad(false); })
       .catch(() => setIndexChartLoad(false));
@@ -4216,7 +4226,7 @@ function TabMarches() {
 
   const fetchIndexCompanies = React.useCallback((ticker, page, q) => {
     setIndexCoLoading(true);
-    fetch(`/api/marches/indices/${encodeURIComponent(ticker)}/companies?page=${page}&q=${encodeURIComponent(q)}`, { headers: getTokenH() })
+    apiFetch(`/api/marches/indices/${encodeURIComponent(ticker)}/companies?page=${page}&q=${encodeURIComponent(q)}`)
       .then(r => r.json())
       .then(d => {
         setIndexCompanies(d.companies || []);
@@ -4847,8 +4857,7 @@ function TabWallet() {
   const [adding,    setAdding]    = React.useState(false);
   const [syncTime,  setSyncTime]  = React.useState(null);
 
-  const apiFetch = (url, opts = {}) =>
-    fetch(url, { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, ...opts });
+  // Utilise l'apiFetch global (gestion centralisee du token et du 401).
 
   const loadAddresses = async () => {
     setLoading(true);
@@ -5308,7 +5317,10 @@ function TabFormation() {
   );
 }
 
-function TabProfil({ data, setData, mois }) {
+// onReset n'est PAS destructure des props : le composant definit sa propre
+// version plus bas (reset + persistance + reload). Le declarer ici provoquait
+// un "Identifier 'onReset' has already been declared" qui bloquait tout le rendu.
+function TabProfil({ data, setData, mois, userPlan, onUpgrade }) {
   const isMobile = useMobile();
   const [editMode, setEditMode] = useState(false);
   const [nom, setNom] = useState(data.profil.nom);
@@ -5614,8 +5626,7 @@ const ALL_TABS_META = [
 
 function AdminPanel({ authUser, onHiddenTabsChange }) {
   const isMobile = useMobile();
-  const tok = getToken();
-  const api = (url, opts={}) => fetch(url, { headers: { Authorization: `Bearer ${tok}`, "Content-Type":"application/json", ...(opts.headers||{}) }, ...opts });
+  const api = (url, opts={}) => apiFetch(url, opts);
 
   const [tab, setTab]         = React.useState("stats");
   const [loading, setLoading] = React.useState(true);
@@ -5675,6 +5686,14 @@ function AdminPanel({ authUser, onHiddenTabsChange }) {
     if (expanded===uid) { setExpanded(null); return; }
     setExpanded(uid);
     loadUserData(uid);
+  };
+
+  const setPlan = (uid, plan, months=1) => {
+    api(`/api/admin/user/${uid}/set-plan`, { method:"POST", body:JSON.stringify({plan, months}) })
+      .then(r => {
+        if (r.ok) { setUsers(us => us.map(u => u.id===uid ? {...u, plan} : u)); setActionMsg(p=>({...p,[uid]:`✓ Plan → ${plan}`})); }
+        else setActionMsg(p=>({...p,[uid]:"✗ Erreur plan"}));
+      });
   };
 
   const promote = (uid, makeAdmin) => {
@@ -6052,6 +6071,7 @@ function AdminPanel({ authUser, onHiddenTabsChange }) {
                       <div style={{ fontWeight:isActive?700:500,fontSize:13,color:isActive?"var(--text)":"var(--text)",display:"flex",alignItems:"center",gap:5 }}>
                         <span style={{ overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{u.nom||"(sans nom)"}</span>
                         {u.is_admin && <span style={{ fontSize:9,flexShrink:0 }}>👑</span>}
+                        {u.plan==="premium" && <span style={{ fontSize:9,flexShrink:0,color:"var(--cyan)" }}>⭐</span>}
                       </div>
                       <div style={{ fontSize:10,color:"var(--muted)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{u.email}</div>
                     </div>
@@ -6121,6 +6141,9 @@ function AdminPanel({ authUser, onHiddenTabsChange }) {
                 <button onClick={()=>promote(selUser.id,!selUser.is_admin)} style={{ display:"flex",alignItems:"center",gap:6,background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:8,color:"#F59E0B",padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600 }}>
                   {selUser.is_admin?"👑 Révoquer admin":"👑 Promouvoir admin"}
                 </button>
+                  <button onClick={()=>setPlan(selUser.id, selUser.plan==="premium" ? "free" : "premium")} style={{ display:"flex",alignItems:"center",gap:6,background:selUser.plan==="premium"?"rgba(0,200,255,0.08)":"rgba(76,175,80,0.08)",border:selUser.plan==="premium"?"1px solid rgba(0,200,255,0.3)":"1px solid rgba(76,175,80,0.3)",borderRadius:8,color:selUser.plan==="premium"?"var(--cyan)":"#4caf50",padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600 }}>
+                    {selUser.plan==="premium" ? "⬇ Rétrograder Free" : "⭐ Passer Premium"}
+                  </button>
                 <button onClick={()=>resetData(selUser.id)} style={{ display:"flex",alignItems:"center",gap:6,background:"rgba(100,150,255,0.08)",border:"1px solid rgba(100,150,255,0.3)",borderRadius:8,color:"var(--accent)",padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:600 }}>
                   🗑 Reset données
                 </button>
@@ -6325,6 +6348,46 @@ function AdminPanel({ authUser, onHiddenTabsChange }) {
   );
 }
 
+// ─── UPGRADE MODAL ────────────────────────────────────────────────────────────
+
+function UpgradeModal({ reason, onClose }) {
+  const reasons = {
+    limit_ia:        { emoji:"🤖", titre:"Conseil IA illimité", desc:"Vous avez utilisé vos 3 conseils IA gratuits ce mois-ci." },
+    limit_objectifs: { emoji:"🎯", titre:"Objectifs illimités", desc:"Le plan gratuit est limité à 2 objectifs financiers." },
+    limit_export:    { emoji:"📄", titre:"Export PDF & JSON",   desc:"L\'export de vos données est réservé aux abonnés Premium." },
+    limit_history:   { emoji:"📅", titre:"Historique illimité", desc:"Le plan gratuit affiche uniquement les 3 derniers mois." },
+  };
+  const r = reasons[reason] || { emoji:"⭐", titre:"Fonctionnalité Premium", desc:"Cette fonctionnalité est réservée aux abonnés Premium." };
+  return (
+    <div style={{ position:"fixed",inset:0,zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.7)",backdropFilter:"blur(4px)" }} onClick={onClose}>
+      <div style={{ background:"#0B1628",border:"1px solid rgba(0,200,255,0.3)",borderRadius:16,padding:"32px 28px",maxWidth:400,width:"90%",textAlign:"center",boxShadow:"0 0 60px rgba(0,200,255,0.1)" }} onClick={e=>e.stopPropagation()}>
+        <div style={{ fontSize:48,marginBottom:12 }}>{r.emoji}</div>
+        <div style={{ fontSize:20,fontWeight:700,color:"var(--text)",marginBottom:8 }}>{r.titre}</div>
+        <div style={{ fontSize:13,color:"var(--muted)",marginBottom:24,lineHeight:1.6 }}>{r.desc}<br/>Passez en <strong style={{color:"var(--cyan)"}}>Premium</strong> pour débloquer.</div>
+        <div style={{ display:"flex",gap:12,marginBottom:20,justifyContent:"center" }}>
+          {[["1 mois","1 500 FCFA",1],["1 an","15 000 FCFA — −17%",12]].map(([label,prix,months])=>(
+            <div key={months} style={{ flex:1,background:"rgba(0,200,255,0.06)",border:"1px solid rgba(0,200,255,0.2)",borderRadius:10,padding:"14px 10px",cursor:"pointer" }}
+              onClick={()=>{
+                if(!getToken()) return;
+                apiFetch("/api/plan/activate",{method:"POST",body:JSON.stringify({plan:"premium",months})})
+                  .then(r=>r.json()).then(d=>{ if(d.ok){ window.location.reload(); } }).catch(()=>{});
+              }}>
+              <div style={{ fontWeight:700,fontSize:14,color:"var(--cyan)" }}>{label}</div>
+              <div style={{ fontSize:12,color:"var(--muted)",marginTop:4 }}>{prix}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize:11,color:"rgba(0,200,255,0.5)",marginBottom:20 }}>
+          💳 Paiement mobile money bientôt disponible<br/>(Orange Money · Wave · MTN MoMo)
+        </div>
+        <button onClick={onClose} style={{ background:"none",border:"1px solid rgba(255,255,255,0.15)",color:"var(--muted)",borderRadius:8,padding:"8px 20px",fontSize:13,cursor:"pointer" }}>
+          Continuer en gratuit
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
 
 function App() {
@@ -6335,6 +6398,9 @@ function App() {
   const [authForm, setAuthForm]   = React.useState({ email:"", password:"", nom:"" });
   const [authError, setAuthError] = React.useState("");
   const [authLoading, setAuthLoading] = React.useState(false);
+
+  const [userPlan, setUserPlan] = React.useState({ plan:"free", is_premium:false, ia_calls_remaining:3, ia_calls_limit:3, max_objectifs:2, can_export:false });
+  const [upgradeModal, setUpgradeModal] = React.useState(null);
 
   const [data, setDataRaw]   = React.useState({ ...DEFAULT_STATE });
   const [mois, setMois]      = React.useState(todayMois());
@@ -6350,14 +6416,10 @@ function App() {
     setSaveStatus("saving");
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      const tok = getToken();
-      if (!tok) return;
-      fetch("/api/save", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
-        body: JSON.stringify(newData),
-      }).then(r => {
-          if (r.status === 401) { clearToken(); if (_setAuthUser) _setAuthUser(null); return; }
+      if (!getToken()) return;
+      apiFetch("/api/save", { method: "POST", body: JSON.stringify(newData) })
+        .then(r => {
+          if (r.status === 401) return;  // logout deja declenche par apiFetch
           setSaveStatus(r.ok ? "ok" : "error");
         })
         .catch(() => setSaveStatus("error"));
@@ -6385,15 +6447,21 @@ function App() {
     fetch("/api/settings").then(r => r.json()).then(cfg => setHiddenTabs(cfg.hidden_tabs || [])).catch(() => {});
     const tok = getToken();
     if (!tok) { setAuthReady(true); return; }
-    fetch("/api/me", { headers: { Authorization: `Bearer ${tok}` } })
+    apiFetch("/api/me")
       .then(r => r.ok ? r.json() : null)
-      .then(u => { if (u) setAuthUser(u); else clearToken(); setAuthReady(true); })
+      .then(u => {
+        if (u) {
+          setAuthUser(u);
+          setUserPlan({ plan:u.plan||"free", is_premium:u.is_premium||false, ia_calls_remaining:u.ia_calls_remaining, ia_calls_limit:u.ia_calls_limit, max_objectifs:u.max_objectifs, can_export:u.can_export||false, plan_expires_at:u.plan_expires_at });
+        } else clearToken();
+        setAuthReady(true);
+      })
       .catch(() => setAuthReady(true));
   }, []);
 
   React.useEffect(() => {
     if (!authUser) return;
-    fetch("/api/load", { headers: { Authorization: `Bearer ${getToken()}` } })
+    apiFetch("/api/load")
       .then(r => r.json())
       .then(d => { if (d && Object.keys(d).length > 0) setDataRaw({ ...DEFAULT_STATE, ...d }); })
       .catch(() => {});
@@ -6408,7 +6476,14 @@ function App() {
       });
       const d = await r.json();
       if (!r.ok) setAuthError(d.error || "Erreur connexion");
-      else { setToken(d.token); setAuthUser({ email: d.email, nom: d.nom, is_admin: d.is_admin }); }
+      else {
+        setToken(d.token);
+        setAuthUser({ email: d.email, nom: d.nom, is_admin: d.is_admin });
+        fetch("/api/me", { headers: { Authorization: "Bearer " + d.token } })
+          .then(r => r.ok ? r.json() : null)
+          .then(u => { if (u) setUserPlan({ plan:u.plan||"free", is_premium:u.is_premium||false, ia_calls_remaining:u.ia_calls_remaining, ia_calls_limit:u.ia_calls_limit, max_objectifs:u.max_objectifs, can_export:u.can_export||false, plan_expires_at:u.plan_expires_at }); })
+          .catch(() => {});
+      }
     } catch(e) { setAuthError("Erreur réseau"); }
     setAuthLoading(false);
   };
@@ -6422,7 +6497,7 @@ function App() {
       });
       const d = await r.json();
       if (!r.ok) setAuthError(d.error || "Erreur inscription");
-      else { setToken(d.token); setAuthUser({ email: d.email, nom: d.nom, is_admin: false }); }
+      else { setToken(d.token); setAuthUser({ email: d.email, nom: d.nom, is_admin: false }); setUserPlan({ plan:"free", is_premium:false, ia_calls_remaining:3, ia_calls_limit:3, max_objectifs:2, can_export:false }); }
     } catch(e) { setAuthError("Erreur réseau"); }
     setAuthLoading(false);
   };
@@ -6715,7 +6790,15 @@ function App() {
           {saveStatus==="saving" && <span style={{ color:"var(--muted)",fontSize:10,fontFamily:"'Space Mono',monospace" }}>SYNC…</span>}
           {saveStatus==="ok"     && <span style={{ color:"var(--green)",fontSize:10,fontFamily:"'Space Mono',monospace" }}>✓ OK</span>}
           {saveStatus==="error"  && <span style={{ color:"var(--red)",fontSize:10,fontFamily:"'Space Mono',monospace" }}>✗ ERR</span>}
-          <button onClick={toggleTheme} style={{ background:"transparent",border:"1px solid rgba(0,200,255,0.2)",borderRadius:4,color:"var(--muted)",fontSize:14,cursor:"pointer",padding:"5px 8px" }}>
+          {userPlan && userPlan.is_premium
+            ? <span style={{ fontSize:10,fontWeight:700,color:"var(--cyan)",border:"1px solid rgba(0,200,255,0.4)",borderRadius:4,padding:"2px 7px",fontFamily:"'Space Mono',monospace",letterSpacing:"0.05em" }}>⭐ PREMIUM</span>
+            : <span onClick={() => setUpgradeModal("limit_export")} style={{ fontSize:10,fontWeight:700,color:"var(--muted)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:4,padding:"2px 7px",fontFamily:"'Space Mono',monospace",cursor:"pointer",letterSpacing:"0.05em" }}>FREE</span>
+          }
+                    {userPlan && userPlan.is_premium
+            ? <span style={{ fontSize:10,fontWeight:700,color:"var(--cyan)",border:"1px solid rgba(0,200,255,0.4)",borderRadius:4,padding:"2px 7px",fontFamily:"'Space Mono',monospace",letterSpacing:"0.05em" }}>⭐ PREMIUM</span>
+            : <span onClick={() => setUpgradeModal("limit_export")} style={{ fontSize:10,fontWeight:700,color:"var(--muted)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:4,padding:"2px 7px",fontFamily:"'Space Mono',monospace",cursor:"pointer",letterSpacing:"0.05em" }}>FREE</span>
+          }
+<button onClick={toggleTheme} style={{ background:"transparent",border:"1px solid rgba(0,200,255,0.2)",borderRadius:4,color:"var(--muted)",fontSize:14,cursor:"pointer",padding:"5px 8px" }}>
             {theme==="dark" ? "○" : "◑"}
           </button>
           <button onClick={handleLogout} style={{ background:"transparent",border:"1px solid rgba(255,59,107,0.3)",borderRadius:4,color:"var(--red)",fontSize:13,cursor:"pointer",padding:"5px 8px" }}>⏻</button>
@@ -6761,16 +6844,18 @@ function App() {
         {activeTab==="accueil"    && <TabAccueil    data={data} mois={mois} />}
         {activeTab==="budget"     && <TabBudget     data={data} setData={setData} mois={mois} />}
         {activeTab==="graphiques" && <TabGraphiques data={data} mois={mois} />}
-        {activeTab==="objectifs"  && <TabObjectifs  data={data} setData={setData} mois={mois} />}
+        {activeTab==="objectifs"  && <TabObjectifs  data={data} setData={setData} mois={mois} userPlan={userPlan} onUpgrade={setUpgradeModal} />}
         {activeTab==="investir"   && <TabInvestir   data={data} setData={setData} mois={mois} />}
-        {activeTab==="conseil"    && <TabConseil    data={data} mois={mois} />}
+        {activeTab==="conseil"    && <TabConseil    data={data} mois={mois} userPlan={userPlan} setUserPlan={setUserPlan} onUpgrade={setUpgradeModal} />}
         {activeTab==="patrimoine" && <TabPatrimoine data={data} setData={setData} mois={mois} />}
         {activeTab==="marches"    && <TabMarches    />}
         {activeTab==="wallet"     && <TabWallet     />}
         {activeTab==="formation"  && <TabFormation  />}
-        {activeTab==="profil"     && <TabProfil     data={data} setData={setData} mois={mois} onReset={() => setData({...DEFAULT_STATE})} />}
+        {activeTab==="profil"     && <TabProfil     data={data} setData={setData} mois={mois} onReset={() => setData({...DEFAULT_STATE})} userPlan={userPlan} onUpgrade={setUpgradeModal} />}
         {activeTab==="admin"      && isAdmin && <AdminPanel authUser={authUser} onHiddenTabsChange={setHiddenTabs} />}
       </main>
+
+      {upgradeModal && <UpgradeModal reason={upgradeModal} onClose={() => setUpgradeModal(null)} />}
 
       {pendingMois && (
         <ModalNouveauMois

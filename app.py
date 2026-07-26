@@ -54,6 +54,55 @@ def _cache_get(key, ttl=300):
 def _cache_set(key, data):
     _cache[key] = (data, _time.time())
 
+
+# ── Freemium ──────────────────────────────────────────────────────────────────
+FREE_LIMITS = {
+    "history_months": 3,
+    "ia_calls_per_month": 3,
+    "max_objectifs": 2,
+    "export": False,
+}
+
+def get_user_plan(user_id, conn=None):
+    close_conn = conn is None
+    if close_conn:
+        conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT plan, plan_expires_at FROM users WHERE id=%s", (user_id,))
+    row = cur.fetchone()
+    plan = row[0] if row else "free"
+    expires_at = row[1] if row else None
+    if plan == "premium" and expires_at and expires_at < datetime.datetime.now():
+        cur.execute("UPDATE users SET plan='free', plan_expires_at=NULL WHERE id=%s", (user_id,))
+        conn.commit()
+        plan = "free"; expires_at = None
+    mois_courant = datetime.datetime.now().strftime("%Y-%m")
+    cur.execute("SELECT calls FROM ia_usage WHERE user_id=%s AND mois=%s", (user_id, mois_courant))
+    ia_row = cur.fetchone()
+    ia_calls_used = ia_row[0] if ia_row else 0
+    if close_conn: cur.close(); conn.close()
+    else: cur.close()
+    is_premium = plan == "premium"
+    return {
+        "plan": plan,
+        "is_premium": is_premium,
+        "plan_expires_at": expires_at.isoformat() if expires_at else None,
+        "ia_calls_used": ia_calls_used,
+        "ia_calls_limit": None if is_premium else FREE_LIMITS["ia_calls_per_month"],
+        "ia_calls_remaining": None if is_premium else max(0, FREE_LIMITS["ia_calls_per_month"] - ia_calls_used),
+        "max_objectifs": None if is_premium else FREE_LIMITS["max_objectifs"],
+        "history_months": None if is_premium else FREE_LIMITS["history_months"],
+        "can_export": True if is_premium else FREE_LIMITS["export"],
+    }
+
+def increment_ia_usage(user_id, conn):
+    mois_courant = datetime.datetime.now().strftime("%Y-%m")
+    cur = conn.cursor()
+    cur.execute("""INSERT INTO ia_usage (user_id, mois, calls) VALUES (%s, %s, 1)
+        ON CONFLICT (user_id, mois) DO UPDATE SET calls = ia_usage.calls + 1""",
+        (user_id, mois_courant))
+    cur.close()
+
 # ── DB ────────────────────────────────────────────────────────────────────────
 def get_conn():
     url = DATABASE_URL
@@ -73,9 +122,20 @@ def init_db():
         id SERIAL PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
         nom TEXT NOT NULL DEFAULT \'\', is_admin BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW(), last_login TIMESTAMP)""")
-    for col, defn in [("is_admin","BOOLEAN NOT NULL DEFAULT FALSE"),("last_login","TIMESTAMP")]:
+    for col, defn in [
+        ("is_admin","BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("last_login","TIMESTAMP"),
+        ("plan","TEXT NOT NULL DEFAULT 'free'"),
+        ("plan_expires_at","TIMESTAMP"),
+        ("token_version","INTEGER NOT NULL DEFAULT 0"),
+    ]:
         try: cur.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {defn}")
         except: pass
+    cur.execute("""CREATE TABLE IF NOT EXISTS ia_usage (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        mois TEXT NOT NULL,
+        calls INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, mois))""")
     cur.execute("""CREATE TABLE IF NOT EXISTS patrimoine_data (
         user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
         data JSONB NOT NULL DEFAULT \'{}\', updated_at TIMESTAMP DEFAULT NOW())""")
@@ -100,9 +160,13 @@ with app.app_context():
     except Exception as _e: print(f"\u26a0 init_db echoue: {_e}")
 
 # ── JWT ───────────────────────────────────────────────────────────────────────
-def create_token(user_id, email, is_admin=False):
+def create_token(user_id, email, is_admin=False, token_version=0):
     now = datetime.datetime.now(datetime.timezone.utc)
+    # "is_admin" est purement informatif pour le client : le serveur ne s'y fie
+    # JAMAIS (cf. require_auth, qui relit le role en base a chaque requete).
+    # "tv" = token_version : permet de revoquer toutes les sessions d'un compte.
     payload = {"sub": str(user_id), "email": email, "is_admin": is_admin,
+               "tv": int(token_version or 0),
                "exp": now + datetime.timedelta(days=JWT_EXPIRY), "iat": now}
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
@@ -118,21 +182,44 @@ def require_auth(f):
         token_str = auth.split(" ", 1)[1]
         try:
             payload = decode_token(token_str)
-            request.user_id    = int(payload["sub"])
-            request.user_email = payload["email"]
-            request.is_admin   = bool(payload.get("is_admin", False))
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Session expiree"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "Token invalide"}), 401
+        except Exception:
+            return jsonify({"error": "Token invalide"}), 401
+
+        # Le token reste valide jusqu'a 30 jours : on ne fait donc JAMAIS confiance
+        # a son contenu pour le role ni pour la validite de la session. Les deux
+        # sont relus en base a chaque requete authentifiee.
+        try:
+            uid = int(payload["sub"])
+            conn = get_conn(); cur = conn.cursor()
+            cur.execute("SELECT is_admin, token_version FROM users WHERE id=%s", (uid,))
+            row = cur.fetchone()
+            cur.close(); conn.close()
         except Exception as e:
-            return jsonify({"error": str(e)}), 401
+            app.logger.error(f"require_auth: echec lecture utilisateur - {e}")
+            return jsonify({"error": "Erreur serveur"}), 500
+
+        if not row:
+            # Compte supprime alors qu'un token etait encore en circulation
+            return jsonify({"error": "Compte introuvable"}), 401
+        if int(payload.get("tv", 0)) != int(row[1] or 0):
+            # Mot de passe change depuis l'emission du token -> session revoquee
+            return jsonify({"error": "Session revoquee"}), 401
+
+        request.user_id    = uid
+        request.user_email = payload.get("email", "")
+        request.is_admin   = bool(row[0])
         return f(*args, **kwargs)
     return wrapper
 
 def require_admin(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
+        # request.is_admin provient de la base (cf. require_auth), jamais du token :
+        # une retrogradation prend effet immediatement, sans attendre l'expiration.
         if not getattr(request, "is_admin", False):
             return jsonify({"error": "Acces refuse - droits admin requis"}), 403
         return f(*args, **kwargs)
@@ -193,16 +280,16 @@ def login():
         return jsonify({"error": "Email et mot de passe requis"}), 400
     try:
         conn = get_conn(); cur = conn.cursor()
-        cur.execute("SELECT id,email,password_hash,nom,is_admin FROM users WHERE email=%s", (email,))
+        cur.execute("SELECT id,email,password_hash,nom,is_admin,token_version FROM users WHERE email=%s", (email,))
         row = cur.fetchone()
         if not row:
             return jsonify({"error": "Email ou mot de passe incorrect"}), 401
-        uid, em, pw_hash, nom, is_admin = row
+        uid, em, pw_hash, nom, is_admin, tv = row
         if not bcrypt.checkpw(password.encode(), pw_hash.encode()):
             return jsonify({"error": "Email ou mot de passe incorrect"}), 401
         cur.execute("UPDATE users SET last_login=NOW() WHERE id=%s", (uid,))
         conn.commit()
-        token = create_token(uid, em, bool(is_admin))
+        token = create_token(uid, em, bool(is_admin), tv)
         return jsonify({"token": token, "email": em, "nom": nom, "is_admin": bool(is_admin)}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -215,7 +302,37 @@ def me():
         cur.execute("SELECT email,nom,is_admin FROM users WHERE id=%s", (request.user_id,))
         row = cur.fetchone()
         if not row: return jsonify({"error": "Utilisateur introuvable"}), 404
-        return jsonify({"email": row[0], "nom": row[1], "is_admin": bool(row[2])}), 200
+        plan_info = get_user_plan(request.user_id)
+        return jsonify({"email": row[0], "nom": row[1], "is_admin": bool(row[2]), **plan_info}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/plan", methods=["GET"])
+@require_auth
+def get_plan():
+    try:
+        return jsonify(get_user_plan(request.user_id)), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/plan/activate", methods=["POST"])
+@require_auth
+def activate_plan():
+    body = request.get_json() or {}
+    plan = body.get("plan", "premium")
+    months = int(body.get("months", 1))
+    if plan not in ("free", "premium"):
+        return jsonify({"error": "Plan invalide"}), 400
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        if plan == "premium":
+            expires = datetime.datetime.now() + datetime.timedelta(days=30 * months)
+            cur.execute("UPDATE users SET plan='premium', plan_expires_at=%s WHERE id=%s", (expires, request.user_id))
+        else:
+            cur.execute("UPDATE users SET plan='free', plan_expires_at=NULL WHERE id=%s", (request.user_id,))
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({"ok": True, "plan": plan}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -228,6 +345,14 @@ def load_data():
         row = cur.fetchone()
         if not row: return jsonify({}), 200
         data = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+        plan_info = get_user_plan(request.user_id, conn)
+        if not plan_info["is_premium"] and isinstance(data.get("mois"), dict):
+            all_months = sorted(data["mois"].keys(), reverse=True)
+            if len(all_months) > FREE_LIMITS["history_months"]:
+                kept = set(all_months[:FREE_LIMITS["history_months"]])
+                data["mois"] = {k: v for k, v in data["mois"].items() if k in kept}
+                data["_history_limited"] = True
+        cur.close(); conn.close()
         return jsonify(data), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -237,12 +362,19 @@ def load_data():
 def save_data():
     body = request.get_json() or {}
     try:
-        conn = get_conn(); cur = conn.cursor()
+        conn = get_conn()
+        plan_info = get_user_plan(request.user_id, conn)
+        if not plan_info["is_premium"]:
+            objectifs = body.get("objectifs", [])
+            if isinstance(objectifs, list) and len(objectifs) > FREE_LIMITS["max_objectifs"]:
+                conn.close()
+                return jsonify({"error":"limit_objectifs","message":f"Plan gratuit limité à {FREE_LIMITS['max_objectifs']} objectifs.","upgrade":True}), 403
+        cur = conn.cursor()
         data_str = json.dumps(body)
         cur.execute("""INSERT INTO patrimoine_data (user_id,data,updated_at) VALUES (%s,%s::jsonb,NOW())
             ON CONFLICT (user_id) DO UPDATE SET data=%s::jsonb, updated_at=NOW()""",
             (request.user_id, data_str, data_str))
-        conn.commit()
+        conn.commit(); cur.close(); conn.close()
         return jsonify({"ok": True}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -274,11 +406,21 @@ def change_password():
         if not row or not bcrypt.checkpw(old_pw.encode(), row[0].encode()):
             return jsonify({"error": "Mot de passe actuel incorrect"}), 401
         new_hash = bcrypt.hashpw(new_pw.encode(), bcrypt.gensalt()).decode()
-        cur.execute("UPDATE users SET password_hash=%s WHERE id=%s", (new_hash, request.user_id))
-        conn.commit()
-        return jsonify({"ok": True}), 200
+        # Incrementer token_version revoque instantanement TOUTES les sessions
+        # ouvertes sur ce compte (y compris celle d'un eventuel attaquant).
+        cur.execute("""UPDATE users SET password_hash=%s,
+                       token_version=COALESCE(token_version,0)+1
+                       WHERE id=%s RETURNING token_version, is_admin""",
+                    (new_hash, request.user_id))
+        new_tv, is_admin = cur.fetchone()
+        conn.commit(); cur.close(); conn.close()
+        # ... y compris la sienne : on lui delivre donc un token a jour pour
+        # qu'il ne soit pas deconnecte par son propre changement de mot de passe.
+        token = create_token(request.user_id, request.user_email, bool(is_admin), new_tv)
+        return jsonify({"ok": True, "token": token}), 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        app.logger.error(f"change_password: {e}")
+        return jsonify({"error": "Erreur serveur"}), 500
 
 @app.route("/api/update-profile", methods=["POST"])
 @require_auth
@@ -297,10 +439,14 @@ def update_profile():
 @require_auth
 def export_data():
     try:
+        plan_info = get_user_plan(request.user_id)
+        if not plan_info["can_export"]:
+            return jsonify({"error":"limit_export","message":"L'export est réservé aux abonnés Premium.","upgrade":True}), 403
         conn = get_conn(); cur = conn.cursor()
         cur.execute("SELECT data FROM patrimoine_data WHERE user_id=%s", (request.user_id,))
         row = cur.fetchone()
         data = row[0] if row and isinstance(row[0],dict) else (json.loads(row[0]) if row else {})
+        cur.close(); conn.close()
         return jsonify(data), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -308,6 +454,11 @@ def export_data():
 @app.route("/api/conseil-ia", methods=["POST"])
 @require_auth
 def conseil_ia():
+    conn_check = get_conn()
+    plan_info = get_user_plan(request.user_id, conn_check)
+    if not plan_info["is_premium"] and plan_info["ia_calls_remaining"] <= 0:
+        conn_check.close()
+        return jsonify({"ok":False,"error":"limit_ia","message":f"Vous avez utilisé vos {FREE_LIMITS['ia_calls_per_month']} conseils IA gratuits ce mois-ci.","upgrade":True,"ia_calls_used":plan_info["ia_calls_used"],"ia_calls_limit":plan_info["ia_calls_limit"]}), 403
     body = request.get_json() or {}
 
     # Support ancien format (champ "question" direct) ET nouveau format (données structurées)
@@ -419,8 +570,12 @@ Règles importantes :
                 json={"model": model, "prompt": question, "stream": False, "options": {"temperature": 0.7, "num_predict": 700}},
                 timeout=120)
             d = r.json()
-            return jsonify({"ok": True, "conseil": d.get("response", "Réponse vide.")}), 200
+            conseil_text = d.get("response", "Réponse vide.")
+            increment_ia_usage(request.user_id, conn_check); conn_check.commit(); conn_check.close()
+            p2 = get_user_plan(request.user_id)
+            return jsonify({"ok": True, "conseil": conseil_text, "ia_calls_remaining": p2["ia_calls_remaining"]}), 200
         except Exception as e:
+            conn_check.close()
             return jsonify({"ok": False, "error": f"Ollama inaccessible: {str(e)}. Configurez GROQ_API_KEY dans .env ou démarrez Ollama."}), 200
 
     try:
@@ -432,8 +587,11 @@ Règles importantes :
                 {"role": "user", "content": question}], "max_tokens": 900, "temperature": 0.75}, timeout=30)
         data = r.json()
         conseil = data["choices"][0]["message"]["content"]
-        return jsonify({"ok": True, "conseil": conseil}), 200
+        increment_ia_usage(request.user_id, conn_check); conn_check.commit(); conn_check.close()
+        p2 = get_user_plan(request.user_id)
+        return jsonify({"ok": True, "conseil": conseil, "ia_calls_remaining": p2["ia_calls_remaining"]}), 200
     except Exception as e:
+        conn_check.close()
         return jsonify({"ok": False, "error": f"Erreur IA: {str(e)}"}), 200
 
 
@@ -983,10 +1141,9 @@ def admin_stats():
 def admin_list_users():
     try:
         conn = get_conn(); cur = conn.cursor()
-        cur.execute("SELECT id,email,nom,is_admin,created_at,last_login FROM users ORDER BY created_at DESC")
+        cur.execute("SELECT id,email,nom,is_admin,created_at,last_login,plan,plan_expires_at FROM users ORDER BY created_at DESC")
         rows = cur.fetchall()
-        return jsonify({"users":[{"id":r[0],"email":r[1],"nom":r[2],"is_admin":r[3],
-                                   "created_at":str(r[4]),"last_login":str(r[5])} for r in rows]}), 200
+        return jsonify({"users":[{"id":r[0],"email":r[1],"nom":r[2],"is_admin":r[3],"created_at":str(r[4]),"last_login":str(r[5]),"plan":r[6] or "free","plan_expires_at":str(r[7]) if r[7] else None} for r in rows]}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1001,6 +1158,28 @@ def admin_promote(uid):
         cur.execute("UPDATE users SET is_admin=%s WHERE id=%s", (is_admin, uid))
         conn.commit(); cur.close(); conn.close()
         return jsonify({"ok": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/admin/user/<int:uid>/set-plan", methods=["POST"])
+@require_auth
+@require_admin
+def admin_set_plan(uid):
+    body = request.get_json() or {}
+    plan = body.get("plan", "free")
+    months = int(body.get("months", 1))
+    if plan not in ("free", "premium"):
+        return jsonify({"error": "Plan invalide"}), 400
+    try:
+        conn = get_conn(); cur = conn.cursor()
+        if plan == "premium":
+            expires = datetime.datetime.now() + datetime.timedelta(days=30 * months)
+            cur.execute("UPDATE users SET plan='premium', plan_expires_at=%s WHERE id=%s", (expires, uid))
+        else:
+            cur.execute("UPDATE users SET plan='free', plan_expires_at=NULL WHERE id=%s", (uid,))
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({"ok": True, "plan": plan}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
