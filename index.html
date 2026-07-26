@@ -6794,11 +6794,7 @@ function App() {
             ? <span style={{ fontSize:10,fontWeight:700,color:"var(--cyan)",border:"1px solid rgba(0,200,255,0.4)",borderRadius:4,padding:"2px 7px",fontFamily:"'Space Mono',monospace",letterSpacing:"0.05em" }}>⭐ PREMIUM</span>
             : <span onClick={() => setUpgradeModal("limit_export")} style={{ fontSize:10,fontWeight:700,color:"var(--muted)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:4,padding:"2px 7px",fontFamily:"'Space Mono',monospace",cursor:"pointer",letterSpacing:"0.05em" }}>FREE</span>
           }
-                    {userPlan && userPlan.is_premium
-            ? <span style={{ fontSize:10,fontWeight:700,color:"var(--cyan)",border:"1px solid rgba(0,200,255,0.4)",borderRadius:4,padding:"2px 7px",fontFamily:"'Space Mono',monospace",letterSpacing:"0.05em" }}>⭐ PREMIUM</span>
-            : <span onClick={() => setUpgradeModal("limit_export")} style={{ fontSize:10,fontWeight:700,color:"var(--muted)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:4,padding:"2px 7px",fontFamily:"'Space Mono',monospace",cursor:"pointer",letterSpacing:"0.05em" }}>FREE</span>
-          }
-<button onClick={toggleTheme} style={{ background:"transparent",border:"1px solid rgba(0,200,255,0.2)",borderRadius:4,color:"var(--muted)",fontSize:14,cursor:"pointer",padding:"5px 8px" }}>
+          <button onClick={toggleTheme} style={{ background:"transparent",border:"1px solid rgba(0,200,255,0.2)",borderRadius:4,color:"var(--muted)",fontSize:14,cursor:"pointer",padding:"5px 8px" }}>
             {theme==="dark" ? "○" : "◑"}
           </button>
           <button onClick={handleLogout} style={{ background:"transparent",border:"1px solid rgba(255,59,107,0.3)",borderRadius:4,color:"var(--red)",fontSize:13,cursor:"pointer",padding:"5px 8px" }}>⏻</button>
